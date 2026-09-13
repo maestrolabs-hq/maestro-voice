@@ -11,6 +11,7 @@ unknown argument would turn an upstream addition into a broken microphone.
 """
 
 import http.client
+import json
 import os
 import pathlib
 import socket
@@ -140,6 +141,53 @@ class TestShim(unittest.TestCase):
         # The stub reports the byte count it was handed, which proves the audio
         # reached a real file with nothing added or lost on the way.
         self.assertIn(str(len(AUDIO)).encode(), payload)
+
+
+class TestSpeechShim(unittest.TestCase):
+    """The same contract on the other shim, which is where it was observed.
+
+    A speech service was found still running and serving with
+    `--quantum-entangle 42` in its own /proc argv, alongside --ctx-size, --jinja
+    and --n-gpu-layers. This is that observation written down so it keeps being
+    true.
+    """
+
+    def setUp(self):
+        self.port = free_port()
+        environment = dict(os.environ)
+        environment["MAESTRO_TTS_PYTHON"] = "/usr/bin/python3"
+        environment["PYTHONPATH"] = str(STUBS)
+        environment["MAESTRO_TTS_DEVICE"] = "cpu"
+
+        self.process = subprocess.Popen(
+            [str(SERVICES / "llama-server-tts"), *router_line("/somewhere/m.safetensors", self.port)],
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        self.addCleanup(self._stop)
+
+    _stop = TestShim._stop
+    _wait_for_health = TestShim._wait_for_health
+
+    def test_it_speaks_despite_an_invented_flag(self):
+        self.assertEqual(self._wait_for_health(), 200)
+
+        body = json.dumps({"input": "The tests pass.", "language": "en"}).encode()
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=60)
+        connection.request(
+            "POST",
+            "/v1/audio/speech",
+            body=body,
+            headers={"Content-Type": "application/json", "Content-Length": str(len(body))},
+        )
+        response = connection.getresponse()
+        status, payload = response.status, response.read()
+        connection.close()
+
+        self.assertEqual(status, 200, payload[:300])
+        self.assertEqual(payload[:4], b"RIFF", "a WAV container, not an error page")
+        self.assertEqual(payload[8:12], b"WAVE")
 
 
 class TestShimConfiguration(unittest.TestCase):
