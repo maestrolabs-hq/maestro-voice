@@ -34,6 +34,30 @@ pub fn field(body: &str, name: &str) -> Option<String> {
     None
 }
 
+/// Every value of every string field named `name`, in the order they appear.
+///
+/// What the model listing needs: `{"data":[{"id":"embed"},{"id":"whisper"}]}`
+/// carries one field name many times, and the daemon has to see all of them to
+/// say whether an entry it needs is among them.
+#[must_use]
+pub fn fields(body: &str, name: &str) -> Vec<String> {
+    let key = format!("\"{name}\"");
+    let mut found = Vec::new();
+    let mut from = 0;
+
+    while let Some(at) = body[from..].find(&key) {
+        let after = from + at + key.len();
+        let rest = body[after..].trim_start();
+        if let Some(value) = rest.strip_prefix(':') {
+            if let Some(text) = value.trim_start().strip_prefix('"') {
+                found.push(unescape(text));
+            }
+        }
+        from = after;
+    }
+    found
+}
+
 /// The contents of a JSON string, up to its unescaped closing quote.
 fn unescape(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
@@ -150,6 +174,22 @@ mod tests {
     #[test]
     fn an_empty_transcript_is_reported_as_empty_rather_than_missing() {
         assert_eq!(field(r#"{"text":""}"#, "text").as_deref(), Some(""));
+    }
+
+    #[test]
+    fn every_identifier_in_a_listing_is_found() {
+        // The shape of GET /v1/models. Reading only the first would report
+        // every entry but one as missing on a healthy router.
+        let listing = r#"{"data":[{"id":"embed","object":"model"},
+            {"id":"whisper","object":"model"},{"id":"tts","object":"model"}],
+            "object":"list"}"#;
+
+        assert_eq!(
+            super::fields(listing, "id"),
+            ["embed", "whisper", "tts"],
+            "all of them, in order"
+        );
+        assert!(super::fields(listing, "nothing").is_empty());
     }
 
     #[test]

@@ -21,6 +21,7 @@
 
 pub mod agent;
 pub mod capture;
+pub mod check;
 pub mod config;
 pub mod endpoint;
 pub mod http;
