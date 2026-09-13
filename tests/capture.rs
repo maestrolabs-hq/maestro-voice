@@ -11,6 +11,7 @@
 //! misreadings, and a test built on the reader's own idea of the format would
 //! agree with it however wrong it was.
 
+use maestro_voice::capture::pulse::{self, Direction, PulseSource};
 use maestro_voice::capture::{
     Attempt, CHUNK_SAMPLES, Restart, Ring, SAMPLE_RATE, Source, WavSource, samples_in,
 };
@@ -141,27 +142,30 @@ fn a_wav_at_the_wrong_sample_rate_is_refused_and_names_its_rate() {
 }
 
 #[test]
-fn a_stereo_wav_is_refused_and_says_so() {
-    let bytes = wav(2, SAMPLE_RATE, 16, &ramp(64));
+fn a_wav_outside_the_readable_shape_is_refused_and_names_the_reason() {
+    // Each refusal has to say which property was wrong. "unsupported audio" on
+    // its own sends someone reading a hex dump.
+    for (bytes, named, what) in [
+        (
+            wav(2, SAMPLE_RATE, 16, &ramp(64)),
+            "channel",
+            "two channels",
+        ),
+        (
+            wav(1, SAMPLE_RATE, 8, &ramp(64)),
+            "bit",
+            "eight-bit samples",
+        ),
+    ] {
+        let refusal = WavSource::from_bytes(&bytes)
+            .map(|_| ())
+            .expect_err(&format!("{what} must be refused"));
 
-    let refusal = WavSource::from_bytes(&bytes).expect_err("two channels must be refused");
-
-    assert!(
-        refusal.to_string().contains("channel"),
-        "the refusal must name the channel count as the problem, got: {refusal}"
-    );
-}
-
-#[test]
-fn an_eight_bit_wav_is_refused_and_says_so() {
-    let bytes = wav(1, SAMPLE_RATE, 8, &ramp(64));
-
-    let refusal = WavSource::from_bytes(&bytes).expect_err("eight-bit audio must be refused");
-
-    assert!(
-        refusal.to_string().contains("bit"),
-        "the refusal must name the sample width, got: {refusal}"
-    );
+        assert!(
+            refusal.to_string().contains(named),
+            "a file with {what} must be refused for that reason, got: {refusal}"
+        );
+    }
 }
 
 #[test]
@@ -347,6 +351,86 @@ fn a_policy_that_allows_nothing_gives_up_immediately() {
         restart.failed(),
         Attempt::GiveUp,
         "allowing no attempts must not be read as allowing endless ones"
+    );
+}
+
+#[test]
+fn no_device_name_for_this_machine_is_written_into_the_code() {
+    // The survey found exactly one capture source on this host, called
+    // RDPSource, and it is the default. Naming it here would encode one
+    // machine's answer; asking the audio server for its default does not.
+    assert_eq!(pulse::device_or_default(None), "default");
+    assert_eq!(pulse::device_or_default(Some("RDPSource")), "RDPSource");
+    assert_eq!(
+        pulse::device_or_default(Some("")),
+        "default",
+        "an empty override is not a device name"
+    );
+}
+
+#[test]
+fn the_capture_command_asks_for_exactly_the_format_the_crate_reads() {
+    // Every consumer above assumes mono sixteen-bit little-endian audio at the
+    // crate's rate. If ffmpeg is asked for anything else, the samples are
+    // silently misinterpreted rather than refused.
+    let line = pulse::args(Direction::Capture, "RDPSource").join(" ");
+
+    assert!(line.contains("-f pulse"), "reads the audio server: {line}");
+    assert!(line.contains("-i RDPSource"), "from the device: {line}");
+    assert!(line.contains("-ac 1"), "one channel: {line}");
+    assert!(
+        line.contains(&format!("-ar {SAMPLE_RATE}")),
+        "at the crate's rate: {line}"
+    );
+    assert!(line.contains("-f s16le"), "raw little-endian out: {line}");
+    assert!(line.ends_with(" -"), "to standard output: {line}");
+}
+
+#[test]
+fn the_playback_command_declares_the_format_it_is_being_given() {
+    // Playback reads raw samples with no header, so the format has to be
+    // stated on the way in or ffmpeg guesses and the tone comes out wrong.
+    let line = pulse::args(Direction::Playback, "RDPSink").join(" ");
+
+    assert!(line.contains("-f s16le"), "raw little-endian in: {line}");
+    assert!(line.contains("-ac 1"), "one channel: {line}");
+    assert!(
+        line.contains(&format!("-ar {SAMPLE_RATE}")),
+        "at the crate's rate: {line}"
+    );
+    assert!(line.contains("-i -"), "from standard input: {line}");
+    assert!(line.contains("-f pulse"), "to the audio server: {line}");
+    assert!(line.ends_with("RDPSink"), "to the sink: {line}");
+}
+
+#[test]
+fn a_missing_capture_program_says_what_it_looked_for_and_does_not_panic() {
+    // A device problem must never take the daemon down, and the message has to
+    // name the thing to install rather than report an error number.
+    let refusal = PulseSource::open("maestro-voice-no-such-program", "default")
+        .expect_err("a program that does not exist cannot open");
+
+    let message = refusal.to_string();
+    assert!(
+        message.contains("maestro-voice-no-such-program"),
+        "the message must name the program it looked for, got: {message}"
+    );
+    assert!(
+        message.contains("search path"),
+        "and say where it looked, got: {message}"
+    );
+}
+
+#[test]
+fn playing_through_a_missing_program_is_refused_rather_than_fatal() {
+    let refusal = pulse::play("maestro-voice-no-such-program", "default", &[0, 1, 2])
+        .expect_err("a program that does not exist cannot play");
+
+    assert!(
+        refusal
+            .to_string()
+            .contains("maestro-voice-no-such-program"),
+        "got: {refusal}"
     );
 }
 

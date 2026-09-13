@@ -15,6 +15,7 @@ use std::fmt;
 use std::io;
 use std::time::Duration;
 
+pub mod pulse;
 pub mod restart;
 pub mod ring;
 pub mod wav;
