@@ -10,6 +10,7 @@
 //! It is a client only. The server side of the trust boundary is
 //! `crate::intake`, which is where untrusted input actually arrives.
 
+mod body;
 mod reply;
 mod wire;
 

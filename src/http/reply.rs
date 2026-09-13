@@ -12,14 +12,10 @@
 //! daemon started talking to. They resemble each other at the level of "both
 //! split on a blank line"; the rules they enforce have nothing in common.
 
-use std::io::{self, BufRead, BufReader, Read};
+use std::io::{self, BufRead, BufReader};
 use std::net::TcpStream;
 
-/// The most a reply may carry before it is refused rather than allocated.
-///
-/// Synthesized speech is the large case: thirty seconds of 16 kHz mono is under
-/// a megabyte, so this is generous by a wide margin and still bounded.
-const MAX_BODY: usize = 64 * 1024 * 1024;
+use super::body;
 
 /// What came back.
 #[derive(Debug, Clone)]
@@ -82,17 +78,7 @@ pub fn read(stream: TcpStream) -> io::Result<Reply> {
         }
     }
 
-    let body = if chunked {
-        read_chunked(&mut reader)?
-    } else if let Some(declared) = length {
-        read_exact(&mut reader, declared)?
-    } else {
-        // No length and no chunking: the body runs to the close, which is legal
-        // and is what `Connection: close` asks for.
-        let mut rest = Vec::new();
-        reader.take(MAX_BODY as u64).read_to_end(&mut rest)?;
-        rest
-    };
+    let body = body::read(&mut reader, chunked, length)?;
 
     Ok(Reply { status, body })
 }
@@ -108,64 +94,6 @@ fn status_of(line: &str) -> io::Result<u16> {
                 format!("not a status line: {:?}", line.trim_end()),
             )
         })
-}
-
-fn read_exact(reader: &mut BufReader<TcpStream>, declared: usize) -> io::Result<Vec<u8>> {
-    if declared > MAX_BODY {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!("the reply declared {declared} bytes, over the {MAX_BODY} limit"),
-        ));
-    }
-    let mut body = vec![0; declared];
-    reader.read_exact(&mut body)?;
-    Ok(body)
-}
-
-fn read_chunked(reader: &mut BufReader<TcpStream>) -> io::Result<Vec<u8>> {
-    let mut body = Vec::new();
-    loop {
-        let mut header = String::new();
-        if reader.read_line(&mut header)? == 0 {
-            return Err(io::Error::new(
-                io::ErrorKind::UnexpectedEof,
-                "the chunked body stopped before its final zero-length chunk",
-            ));
-        }
-        // A chunk size may carry extensions after a semicolon.
-        let size_text = header.trim_end().split(';').next().unwrap_or("").trim();
-        let size = usize::from_str_radix(size_text, 16).map_err(|_| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("not a chunk size: {size_text:?}"),
-            )
-        })?;
-
-        if size == 0 {
-            // The trailer, then the blank line that ends it.
-            loop {
-                let mut trailer = String::new();
-                if reader.read_line(&mut trailer)? == 0 || trailer.trim_end().is_empty() {
-                    break;
-                }
-            }
-            return Ok(body);
-        }
-
-        if body.len() + size > MAX_BODY {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("the chunked body passed the {MAX_BODY} limit"),
-            ));
-        }
-        let mut chunk = vec![0; size];
-        reader.read_exact(&mut chunk)?;
-        body.extend_from_slice(&chunk);
-
-        // The CRLF that follows every chunk.
-        let mut ending = String::new();
-        let _crlf = reader.read_line(&mut ending)?;
-    }
 }
 
 #[cfg(test)]
