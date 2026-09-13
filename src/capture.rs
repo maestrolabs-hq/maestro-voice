@@ -15,9 +15,11 @@ use std::fmt;
 use std::io;
 use std::time::Duration;
 
+pub mod restart;
 pub mod ring;
 pub mod wav;
 
+pub use restart::{Attempt, Restart};
 pub use ring::Ring;
 pub use wav::WavSource;
 

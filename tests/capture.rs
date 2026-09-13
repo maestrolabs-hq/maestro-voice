@@ -11,7 +11,9 @@
 //! misreadings, and a test built on the reader's own idea of the format would
 //! agree with it however wrong it was.
 
-use maestro_voice::capture::{CHUNK_SAMPLES, Ring, SAMPLE_RATE, Source, WavSource, samples_in};
+use maestro_voice::capture::{
+    Attempt, CHUNK_SAMPLES, Restart, Ring, SAMPLE_RATE, Source, WavSource, samples_in,
+};
 use std::time::Duration;
 
 /// A RIFF/WAVE file carrying `samples`, written from the specification.
@@ -274,6 +276,77 @@ fn a_single_write_larger_than_the_ring_keeps_its_tail() {
         ring.pre_roll(Duration::from_millis(100)),
         written[written.len() - capacity..],
         "one oversized write must behave like many small ones"
+    );
+}
+
+/// The policy this repository runs with: three tries, starting at 200ms.
+fn policy() -> Restart {
+    Restart::allowing(3, Duration::from_millis(200))
+}
+
+#[test]
+fn capture_gives_up_after_three_consecutive_failures() {
+    // Driven by counting failures rather than by breaking ffmpeg: a policy
+    // that can only be exercised by killing a real process is a policy that
+    // never gets exercised.
+    let mut restart = policy();
+
+    assert!(
+        matches!(restart.failed(), Attempt::Retry(_)),
+        "first retries"
+    );
+    assert!(
+        matches!(restart.failed(), Attempt::Retry(_)),
+        "second retries"
+    );
+    assert_eq!(
+        restart.failed(),
+        Attempt::GiveUp,
+        "the third consecutive failure must stop, not retry forever"
+    );
+}
+
+#[test]
+fn a_capture_that_recovers_gets_its_full_allowance_again() {
+    // A microphone that hiccups twice an hour must not accumulate its way to
+    // a permanent stop over a long day.
+    let mut restart = policy();
+    let _ = restart.failed();
+    let _ = restart.failed();
+
+    restart.succeeded();
+
+    assert!(
+        matches!(restart.failed(), Attempt::Retry(_)),
+        "a success in between must clear the count"
+    );
+}
+
+#[test]
+fn the_wait_grows_between_attempts() {
+    // A device that is gone stays gone for a while; retrying at full speed
+    // burns a core and fills the log.
+    let mut restart = policy();
+
+    let Attempt::Retry(first) = restart.failed() else {
+        panic!("expected a retry");
+    };
+    let Attempt::Retry(second) = restart.failed() else {
+        panic!("expected a retry");
+    };
+
+    assert_eq!(first, Duration::from_millis(200));
+    assert!(second > first, "the second wait must exceed the first");
+}
+
+#[test]
+fn a_policy_that_allows_nothing_gives_up_immediately() {
+    let mut restart = Restart::allowing(0, Duration::from_millis(200));
+
+    assert_eq!(
+        restart.failed(),
+        Attempt::GiveUp,
+        "allowing no attempts must not be read as allowing endless ones"
     );
 }
 
