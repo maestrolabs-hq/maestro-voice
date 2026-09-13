@@ -19,4 +19,5 @@
 //! classified frames, not by code that opens a microphone. See
 //! `docs/adr/0001-the-capture-source-is-a-seam.md`.
 
+pub mod capture;
 pub mod endpoint;
