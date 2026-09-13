@@ -117,7 +117,7 @@ fn the_decision_layer_performs_no_input_or_output() {
 /// only code counts.
 fn is_comment(line: &str) -> bool {
     let trimmed = line.trim_start();
-    trimmed.starts_with("//") || trimmed.starts_with("*")
+    trimmed.starts_with("//") || trimmed.starts_with('*')
 }
 
 /// A gate that cannot fail is not a gate. This proves the boundary check reads

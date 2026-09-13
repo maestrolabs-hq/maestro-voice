@@ -3,10 +3,10 @@
 
 ## Read first
 
-1. [.agents/instructions/engineering-baseline.md](.agents/instructions/engineering-baseline.md):
+1. [.agents/instructions/engineering-baseline/engineering-baseline.md](.agents/instructions/engineering-baseline/engineering-baseline.md):
    the four foundations, the eighteen named principles, the hard mandates and
    the evidence each one needs.
-2. [.agents/instructions/security-boundaries.md](.agents/instructions/security-boundaries.md):
+2. [.agents/instructions/security-boundaries/security-boundaries.md](.agents/instructions/security-boundaries/security-boundaries.md):
    what an agent must never do, regardless of who asks.
 3. [README.md](README.md) and [docs/adr](docs/adr/README.md): what this
    repository is and what has already been decided.

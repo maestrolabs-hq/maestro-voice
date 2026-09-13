@@ -6,7 +6,7 @@
 Open a [discussion](https://github.com/maestrolabs-hq/maestro-voice/discussions) or an
 [issue](https://github.com/maestrolabs-hq/maestro-voice/issues). There is no support
 contract or response-time commitment. For a private non-security concern,
-contact francois.ldaigneault@gmail.com.
+contact <francois.ldaigneault@gmail.com>.
 
 ## Bugs
 

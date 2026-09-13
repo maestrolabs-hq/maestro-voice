@@ -10,6 +10,6 @@ with new evidence; repetition without new information wastes review time.
 Harassment, personal attacks, sustained disruption and publishing private
 information are not acceptable.
 
-Report privately to francois.ldaigneault@gmail.com. One maintainer reads reports and will
+Report privately to <francois.ldaigneault@gmail.com>. One maintainer reads reports and will
 not share them further without your agreement. Responses are proportionate:
 a direct conversation where possible, a block for repeated or severe conduct.

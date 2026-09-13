@@ -6,7 +6,21 @@
 disable = ["MD013", "MD036"]
 
 [MD033]
-allowed-elements = ["div", "img", "a", "p", "br", "h1", "h2", "sub", "nav", "ol", "li", "strong", "span"]
+allowed-elements = [
+  "div",
+  "img",
+  "a",
+  "p",
+  "br",
+  "h1",
+  "h2",
+  "sub",
+  "nav",
+  "ol",
+  "li",
+  "strong",
+  "span",
+]
 
 [MD024]
 siblings-only = true

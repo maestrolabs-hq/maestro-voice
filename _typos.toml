@@ -1,0 +1,17 @@
+# Dictionary bindings for the spelling gate.
+#
+# `FND` is the estate's stable prefix for the four foundation principles
+# (FND-001 through FND-004) in .agents/instructions/engineering-baseline.md.
+# Without this entry `typos` treats it as a misspelling of "FIND" and, because
+# the hook writes its corrections, silently rewrites every occurrence -- the
+# identifiers, the enforcement-matrix rows and the heading anchors other
+# documents link to. That is a corrupted governance document produced by a
+# passing gate, which is worse than a failing one.
+#
+# This narrows a false positive; it does not disable a check. Everything else
+# `typos` knows about still applies.
+[default.extend-identifiers]
+FND = "FND"
+
+[default.extend-words]
+FND = "FND"
