@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# The transcription service, presented as something the router can start.
+#
+# The maestro-llamacpp router resolves a catalog entry's `runtime = "whisper"`
+# to a binary called `llama-server-whisper` on the search path. That is the
+# whole integration: the catalog says which runtime, the machine says where it
+# is, and no Rust changes. See services/README.md.
+#
+# The interpreter is resolved at run time and overridable, never written into
+# this file: the venv it defaults to is a fact about one machine.
+set -euo pipefail
+
+here="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+python="${MAESTRO_WHISPER_PYTHON:-${HOME}/whisper-local/.venv/bin/python}"
+
+if [ ! -x "${python}" ]; then
+	echo "llama-server-whisper: no interpreter at '${python}'." >&2
+	echo "Set MAESTRO_WHISPER_PYTHON to one with faster-whisper installed." >&2
+	# 78 is EX_CONFIG: the machine is not set up, rather than the model
+	# failing to load. The router reports the exit status, so the two are
+	# worth telling apart in a log.
+	exit 78
+fi
+
+# CTranslate2 loads cuBLAS and cuDNN through the dynamic loader, and the wheels
+# carrying them install under the virtual environment rather than anywhere the
+# loader looks by default. Without this the model constructs, reports itself
+# ready, and then fails the first real transcription with "libcublas.so.12 is
+# not found" -- which is exactly what happened on this machine before the path
+# was added, and why loading now ends with a warmup inference.
+#
+# Asked of the interpreter rather than written down, so it holds for whichever
+# environment MAESTRO_WHISPER_PYTHON names.
+cuda_libs="$("${python}" - <<'PY' 2>/dev/null || true
+import glob
+import os
+import sysconfig
+
+site = sysconfig.get_paths()["purelib"]
+found = glob.glob(os.path.join(site, "nvidia", "**", "lib", "*.so*"), recursive=True)
+print(os.pathsep.join(sorted({os.path.dirname(path) for path in found})))
+PY
+)"
+if [ -n "${cuda_libs}" ]; then
+	export LD_LIBRARY_PATH="${cuda_libs}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+fi
+
+export PYTHONPATH="${here}${PYTHONPATH:+:${PYTHONPATH}}"
+exec "${python}" -m maestro_speech.whisper "$@"

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# The Python tests for the speech services.
+#
+# Separate from `just lang-check`, which is the Rust fast tier. These run on the
+# system interpreter with no third-party packages and no graphics card: the two
+# model backends are imported inside their load functions precisely so that
+# everything around them stays testable without CUDA.
+#
+# What these do NOT cover is stated in services/README.md: loading either real
+# model, and the quality of what comes back.
+set -euo pipefail
+
+here="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+python="${MAESTRO_SPEECH_TEST_PYTHON:-python3}"
+
+cd "${here}"
+PYTHONPATH="${here}" exec "${python}" -W error::ResourceWarning \
+	-m unittest discover -s tests -p 'test_*.py' "$@"
