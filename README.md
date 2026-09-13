@@ -40,6 +40,42 @@ The turn loop is not wired yet: no microphone is opened and no model is called.
 The endpointing rule in `src/endpoint.rs` is real and tested; everything around
 it is not built.
 
+## The spoken reply
+
+The agent's reply comes back through the agent's own process, not off its
+terminal. Herdr's documentation is explicit that pi draws on the alternate
+screen, so rows that scroll away never enter its scrollback and reading a whole
+reply back out of the pane is not something that can be relied on.
+
+Instead, `extensions/voice-speak.ts` is a pi extension loaded in the voice pane.
+When a turn settles it posts the tail of the final assistant message to the
+daemon on loopback, and the daemon decides what, if anything, to say:
+
+```text
+agent_end      carries the messages; keep the latest assistant text
+agent_settled  carries only its type, but means the turn is final
+                 -> POST /turn  (text/plain, at most 16 KiB)
+                      -> src/intake.rs   accepts it at the trust boundary
+                      -> src/speak.rs    finds <speak>...</speak>, or does not
+```
+
+The extension is inert unless `MAESTRO_VOICE_PORT` names the daemon's intake
+port, which is what marks a pane as the voice pane; an ordinary pi session
+elsewhere loads the file and does nothing. It makes no judgement about the
+reply and never delays, retries into, or fails a turn because the speaker was
+unavailable.
+
+The agent is expected to end a spoken turn with a short block:
+
+```text
+<speak>I added the shutdown handler and the test passes.</speak>
+```
+
+Only that block is spoken. Code, tables and paths in the written reply never
+reach the speaker, and the few things that read badly aloud even inside the
+block are normalised: inline code loses its backticks, `src/proxy/relay.rs:109`
+becomes "relay.rs line 109", and a link is said as its host.
+
 ## Development
 
 ```text
@@ -85,6 +121,13 @@ indicator your system shows for a live microphone will stay on.
 the platform matrix claims one platform rather than asserting portability
 nobody has demonstrated. See
 [ADR 0002](docs/adr/0002-the-profile-bindings-this-repository-states.md).
+
+**A spoken reply depends on the agent writing one.** Only the marked block is
+read aloud, so a turn where the agent forgets it is a turn that says nothing.
+That was accepted deliberately, in exchange for never reading a diff to you, on
+the condition that it be countable: a turn that settles without a block is
+posted to the daemon exactly like one that has a block, so "how often does this
+happen" is a number rather than an impression.
 
 **It depends on things it does not own.** A running router to load the models,
 a running Herdr session to deliver into, and `ffmpeg` on the path. Each is a
