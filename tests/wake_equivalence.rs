@@ -33,51 +33,96 @@
 //!
 //! | quantity | value | against the tolerance | caught by |
 //! | --- | --- | --- | --- |
-//! | runtime-build floor | 3.278e-07 | 3.05x below | -- |
-//! | warm-up zeroing removed | 2.4437904e-06 | 2.44x above | exact-zero **and** numeric |
-//! | head reads one feature row too far back | 3.272642e-01 | 327264x above | peak-chunk, decisions **and** numeric |
-//! | mel offset 2.02 instead of 2.0 | 1.6325712e-03 | 1633x above | numeric only |
-//! | mel buffer seeded with zeros | 4.4582963e-02 | 44583x above | numeric only |
+//! | worst observed runtime floor | 1.013279e-06 | 39.5x below | -- |
+//! | warm-up zeroing removed | 2.4437904e-06 | 16.4x **below** | exact-zero only |
+//! | head reads one feature row too far back | 3.272642e-01 | 8182x above | peak-chunk, decisions **and** numeric |
+//! | mel offset 2.02 instead of 2.0 | 1.6325712e-03 | 40.8x above | numeric only |
+//! | mel buffer seeded with zeros | 4.4582963e-02 | 1115x above | numeric only |
 //!
-//! [`TOLERANCE`] is 1e-6 because the geometric mean of the floor and the
-//! tightest fault is 8.9503e-07: the point that maximises the ratio of margin
-//! on both sides at once. It is derived, not rounded to something comfortable.
+//! # How [`TOLERANCE`] is derived, and the assumption it rests on
+//!
+//! Only two faults constrain this constant: the mel offset and the mel buffer,
+//! because they are the only ones the numeric test catches *alone*. The
+//! warm-up fault does not constrain it, and calibrating as though it did is
+//! what made the previous constant needlessly tight.
+//!
+//! Geometric mean of the worst floor observed on any machine, 1.013279e-06,
+//! and the tightest fault this test alone must catch, 1.6325712e-03, is
+//! 4.067247e-05. [`TOLERANCE`] is 4e-05: that value rounded *down*, because
+//! rounding down tightens the gate. It leaves 39.5x above the worst floor and
+//! 40.8x below the mel offset -- deliberately symmetric, so the constant is
+//! defensible on a machine nobody has measured yet.
+//!
+//! **This is safe only because the exact-zero test catches the warm-up fault
+//! independently.** That fault is 16.4x *below* this tolerance and the numeric
+//! test can no longer see it at all. If
+//! [`the_warm_up_scores_are_exactly_zero`] is removed, weakened, or stops
+//! being run, this constant is invalid and must be re-derived from scratch
+//! against whatever faults the numeric test is then alone in catching. That
+//! sentence is the load-bearing assumption of the whole gate.
 //!
 //! # The tolerance is not carrying this alone
 //!
-//! Its margin against the tightest fault is only 2.44x, so three further tests
-//! below assert properties the tolerance cannot express: the warm-up scores are
-//! *exactly* zero, the peak lands on the same chunk, and the detector reaches
-//! the same decisions. Those are orthogonal to the tolerance rather than weaker
-//! versions of it. The warm-up fault, which the tolerance has least room
-//! against, is caught by the exact-zero test at any magnitude whatsoever --
-//! that fault turns exact zeros into small non-zeros, which no tolerance
-//! question can hide. If the numeric test below is ever loosened, that
-//! reasoning must not leave with it.
+//! Three further tests assert properties the tolerance cannot express: the
+//! warm-up scores are *exactly* zero, the peak lands on the same chunk, and
+//! the detector reaches the same decisions. Those are orthogonal to the
+//! tolerance rather than weaker versions of it. The warm-up fault turns exact
+//! zeros into small non-zeros, which no tolerance question can hide.
 //!
 //! **Where this gate is thin, stated plainly.** Two of the four faults are
-//! caught by the numeric test alone. That is tolerable only because their
-//! margins are 1633x and 44583x, so no plausible re-measurement of the floor
-//! reaches them; redundancy sits where the margin is narrowest, which is the
-//! right way round. All four tests have been observed failing: the framing
-//! shift exists in that table because peak-chunk and decisions caught none of
-//! the other three, and a test never seen to fail is not yet a gate.
+//! caught by the numeric test alone, and one -- the warm-up fault -- is now
+//! caught by the exact-zero test alone. Every fault has exactly one or more
+//! gate and none has none, which is the property that matters; but two of the
+//! three gates are now single points of failure rather than one. All four
+//! tests have been observed failing: the framing shift exists in that table
+//! because peak-chunk and decisions caught none of the other three, and a test
+//! never seen to fail is not yet a gate.
+//!
+//! # Observed floors, one row per machine
+//!
+//! ONNX Runtime dispatches on CPU features at run time, so the floor is a
+//! property of the machine, not a constant of nature. The first version of
+//! this file calibrated against a single machine and the gate broke the first
+//! time it met a second one. Adding a row here when a new machine appears is
+//! what "re-measure and widen with recorded evidence" means in practice.
+//!
+//! Both sides run ONNX Runtime 1.28.0 throughout; only the build differs, and
+//! the reference column is fixed because `reference_scores.txt` was recorded
+//! once, on the development machine, with Microsoft's published wheel.
+//!
+//! | machine | CPU | this crate's build | observed maximum divergence |
+//! | --- | --- | --- | --- |
+//! | development | AMD Ryzen 7 9800X3D | pyke prebuilt, static | 3.278e-07 |
+//! | GitHub hosted `ubuntu-latest` | see the canary note in a run log | pyke prebuilt, static | 1.013279e-06 |
+//!
+//! Two machines already differ by 3.1x. That spread, not either number, is
+//! why the bound is set with symmetric margin rather than just above the
+//! largest floor seen so far.
 //!
 //! # If the floor moves
 //!
-//! ONNX Runtime dispatches on CPU features at run time, so a machine with a
-//! different instruction set may have a different floor. 3.278e-07 is one
-//! machine's measurement, not a constant of nature.
+//! Re-measure, add a row above, and widen from the recorded evidence. Never
+//! nudge the constant until the suite goes green.
 //!
-//! The response is fixed in advance so nobody improvises it: re-measure the
-//! floor and widen with the recorded evidence, never nudge the constant until
-//! the suite goes green. And the line at which widening stops being the answer
-//! is a measurable event rather than a feeling -- **when a re-measured floor
-//! reaches 1e-6 it has met the tolerance**, the numeric comparison no longer
-//! separates runtime noise from a real fault, and the correct response is to
-//! pin the runtime so both sides load one binary, which `docs/adr/0003` keeps
-//! as its documented escape hatch. Today the floor sits 3.05x under that line
-//! and the tightest fault 2.44x over it.
+//! The line at which widening stops being the answer is a measurable event
+//! rather than a feeling: **when an observed floor reaches 1.6e-04** it is
+//! within an order of magnitude of the mel offset at 1.6325712e-03, the
+//! tightest fault this test alone catches, and the numeric comparison has
+//! stopped separating runtime noise from a real fault. Reaching it would mean
+//! runtime noise had grown roughly 160x from today's worst observation, and
+//! the answer then is not another widening.
+//!
+//! It is also not pinning the runtime. That was this file's previous answer
+//! and it was written for the wrong cause: it removes the *build* variable,
+//! while what moved here was the *CPU*. Both sides already ran 1.28.0 when the
+//! floor tripled. Pinning would cost an ONNX Runtime built from source on
+//! every clone and leave the test free to break on a third machine.
+//!
+//! The real answer, unproven and needing its own spike, is to make ONNX
+//! Runtime deterministic across CPUs by constraining graph optimisation or
+//! kernel selection. If that works it would restore exact equality, which is
+//! strictly better than any tolerance. That is the condition that reopens this
+//! decision.
 //!
 //! The weights this needs are not in the repository, by licence. See
 //! `docs/adr/0003-the-wake-word-runtime-and-its-weights.md`.
@@ -88,9 +133,21 @@ use std::path::{Path, PathBuf};
 
 use maestro_voice::wake::{CHUNK, Detector, ModelSet, SAMPLE_RATE, Scorer};
 
-/// The largest score difference attributable to the runtime build rather than
-/// to a fault. Derived in this file's header; do not widen without re-measuring.
-const TOLERANCE: f32 = 1e-6;
+/// The largest score difference attributable to the machine rather than to a
+/// fault. Derived in this file's header; do not widen without re-measuring.
+///
+/// Valid only while [`the_warm_up_scores_are_exactly_zero`] runs: that test,
+/// not this bound, is what catches the warm-up fault.
+const TOLERANCE: f32 = 4e-05;
+
+/// The fraction of [`TOLERANCE`] above which an observed divergence is
+/// reported without failing.
+///
+/// Without this the floor is only ever learned when the gate breaks, which is
+/// how the first calibration reached a pull request as a red check instead of
+/// as a warning. A machine drifting toward the bound now says so while the
+/// suite is still green.
+const CANARY_FRACTION: f32 = 0.2;
 
 /// `model.py`: "zero predictions for first 5 frames during model
 /// initialization". Exact, not approximate.
@@ -201,6 +258,8 @@ fn every_fixture_scores_within_the_measured_runtime_floor() {
         "the reference file named no fixtures"
     );
 
+    let mut observed = 0.0_f32;
+
     for (name, expected) in reference {
         let actual = scores_for(&models, &name);
 
@@ -215,20 +274,67 @@ fn every_fixture_scores_within_the_measured_runtime_floor() {
             .zip(&expected)
             .map(|(a, b)| (a - b).abs())
             .fold(0.0_f32, f32::max);
+        observed = observed.max(worst);
 
         assert!(
             worst <= TOLERANCE,
             "{name}: diverged from openWakeWord by {worst:e}, over the {TOLERANCE:e} \
-             bound.\nThat is larger than the runtime-build floor this bound was \
-             measured against, so it is a fault rather than noise. See this \
-             file's header."
+             bound.\nThat is larger than any floor this bound was measured \
+             against, so it is a fault rather than noise. See this file's \
+             header, and add a row to its table of observed floors before \
+             considering any change to the bound."
         );
     }
+
+    report_floor(observed);
 }
 
-/// Orthogonal to the tolerance, and the only thing standing between the
-/// warm-up fault and a green suite: the bound has just 2.9x of margin against
-/// that fault, while this test catches it at any magnitude at all.
+/// Say what the floor was on this machine when it climbs toward the bound.
+///
+/// Printed rather than asserted: a machine whose floor is merely higher than
+/// the recorded ones has not failed, it has produced the evidence the header's
+/// table wants. `cargo test` shows this only for a failing test, so the note
+/// is written to stderr, which `--nocapture` and every CI log surface.
+fn report_floor(observed: f32) {
+    if observed < TOLERANCE * CANARY_FRACTION {
+        return;
+    }
+
+    eprintln!(
+        "wake_equivalence canary: this machine's floor is {observed:e}, above \
+         {CANARY_FRACTION} of the {TOLERANCE:e} bound.\n\
+         The gate still passes. Add a row to the table of observed floors in \
+         this file's header, naming the CPU below, so the next calibration has \
+         the evidence.\n\
+         CPU: {}",
+        cpu_name().unwrap_or_else(|| "unknown".to_owned())
+    );
+}
+
+/// The CPU this ran on, for the header's table.
+///
+/// The floor depends on which kernels ONNX Runtime dispatches to, so a row in
+/// that table means nothing without naming the processor it was measured on.
+/// Linux only, and absent elsewhere rather than guessed: this crate claims one
+/// platform, and a wrong name in an evidence table is worse than no name.
+fn cpu_name() -> Option<String> {
+    let info = fs::read_to_string("/proc/cpuinfo").ok()?;
+    info.lines()
+        .find(|line| line.starts_with("model name"))
+        .and_then(|line| line.split_once(':'))
+        .map(|(_, name)| name.trim().to_owned())
+}
+
+/// Orthogonal to the tolerance, and now the *only* thing standing between the
+/// warm-up fault and a green suite.
+///
+/// That fault moves the scores by 2.4437904e-06, which is 16.4x **below**
+/// [`TOLERANCE`]: the numeric test cannot see it any more. This one catches it
+/// at any magnitude at all, because the fault turns exact zeros into small
+/// non-zeros and no tolerance question can hide that.
+///
+/// Deleting or weakening this test therefore invalidates [`TOLERANCE`], which
+/// is derived on the assumption that this test exists. The header says so too.
 #[test]
 fn the_warm_up_scores_are_exactly_zero() {
     let models = models();

@@ -46,6 +46,13 @@ jobs:
       # comparing anything. Kept out of `lang-check` so a local run does not
       # reach the network. See docs/adr/0003-the-wake-word-runtime-and-its-weights.md.
       - run: just fetch-wake-models
+      # The wake-word equivalence bound is calibrated against a table of
+      # per-machine floors, because ONNX Runtime dispatches kernels on CPU
+      # features and the floor follows the processor. GitHub does not name the
+      # CPU in the job log and rotates the hardware, so a run that ever
+      # disagrees with that table is only diagnosable if the run said which
+      # machine it was. See the table in tests/wake_equivalence.rs.
+      - run: grep -m1 'model name' /proc/cpuinfo
       - run: just lang-check
 
   sast:
