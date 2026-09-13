@@ -30,7 +30,7 @@ fn post(port: u16, path: &str, body: &str) -> String {
 /// halves.
 fn exchange(path: &'static str, body: String) -> (Received, String) {
     let intake = Intake::bind(0).expect("bind");
-    let port = intake.port().expect("port");
+    let port = intake.address().expect("address").port();
     let client = thread::spawn(move || post(port, path, &body));
     let received = intake.accept().expect("accept");
     (received, client.join().expect("client thread"))
@@ -94,7 +94,7 @@ fn an_unknown_path_is_refused() {
 #[test]
 fn a_request_that_is_not_a_post_is_refused() {
     let intake = Intake::bind(0).expect("bind");
-    let port = intake.port().expect("port");
+    let port = intake.address().expect("address").port();
     let client = thread::spawn(move || {
         let mut stream = TcpStream::connect(("127.0.0.1", port)).expect("connect");
         stream

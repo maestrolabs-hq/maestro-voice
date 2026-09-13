@@ -103,22 +103,14 @@ impl Intake {
         Ok(Self { listener })
     }
 
-    /// Where this is listening.
+    /// Where this is listening, which is how a caller learns the port when it
+    /// asked for any.
     ///
     /// # Errors
     ///
     /// When the socket cannot report its own address.
     pub fn address(&self) -> std::io::Result<SocketAddr> {
         self.listener.local_addr()
-    }
-
-    /// The port this is listening on.
-    ///
-    /// # Errors
-    ///
-    /// When the socket cannot report its own address.
-    pub fn port(&self) -> std::io::Result<u16> {
-        Ok(self.address()?.port())
     }
 
     /// Wait for one caller and answer it.
