@@ -27,6 +27,12 @@ pub enum Note {
     Delivered(u64, Delivery),
     /// Playback finished; `false` means it did not happen.
     Spoke(u64, bool),
+    /// A cue finished playing.
+    ///
+    /// Carries nothing because nothing depends on it. It exists so that a cue
+    /// is work the daemon knows is outstanding, which is what lets a run driven
+    /// from a file wait for its own tones instead of racing them.
+    Announced,
     /// The agent's own process posted a finished turn.
     ///
     /// Carries no generation: a reply belongs to whichever utterance the agent
@@ -41,8 +47,17 @@ impl Note {
     pub const fn generation(&self) -> Option<u64> {
         match self {
             Self::Transcribed(at, _) | Self::Delivered(at, _) | Self::Spoke(at, _) => Some(*at),
-            Self::Reply(_) => None,
+            Self::Reply(_) | Self::Announced => None,
         }
+    }
+
+    /// Whether this note answers a job the daemon is waiting on.
+    ///
+    /// Everything the daemon started is counted; a reply is not, because the
+    /// agent posts that unbidden and the daemon is never waiting for one.
+    #[must_use]
+    pub const fn counted(&self) -> bool {
+        !matches!(self, Self::Reply(_))
     }
 }
 
@@ -75,6 +90,19 @@ mod tests {
             Note::Reply("done".to_owned()).generation(),
             None,
             "a reply answers an utterance the daemon may have moved past"
+        );
+    }
+
+    #[test]
+    fn everything_the_daemon_started_is_counted_and_a_reply_is_not() {
+        assert!(Note::Spoke(1, true).counted());
+        assert!(
+            Note::Announced.counted(),
+            "a cue is work in flight, or a file-driven run races its own tones"
+        );
+        assert!(
+            !Note::Reply("done".to_owned()).counted(),
+            "the daemon never waits for a reply it did not ask for"
         );
     }
 

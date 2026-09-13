@@ -49,13 +49,19 @@ impl Daemon {
     }
 
     /// Play a cue without holding up the audio loop.
-    fn announce(&self, cue: Cue) {
+    ///
+    /// On its own thread because a cue lasts up to six hundred milliseconds and
+    /// the loop cannot stop reading for that long -- the acknowledgement plays
+    /// at the same moment recording starts, so blocking here would cut a hole
+    /// in the utterance it is acknowledging.
+    fn announce(&mut self, cue: Cue) {
         let player = Arc::clone(&self.services.player);
-        drop(std::thread::spawn(move || {
+        self.start(move |_| {
             // Whether a cue reached the speaker changes nothing the daemon
             // does: it is already announcing that something went wrong.
             let _played = player.play(&cue.samples());
-        }));
+            Note::Announced
+        });
     }
 
     fn transcribe(&mut self) {
@@ -63,11 +69,7 @@ impl Daemon {
         let audio = std::mem::take(&mut self.recording);
         let wav = wav::encode(&audio);
         let transcriber = Arc::clone(&self.services.transcriber);
-        let at = self.generation;
-        self.outstanding += 1;
-        note::spawn(&self.post, move || {
-            Note::Transcribed(at, transcriber.transcribe(&wav))
-        });
+        self.start(move |at| Note::Transcribed(at, transcriber.transcribe(&wav)));
     }
 
     fn deliver(&mut self) {
@@ -75,11 +77,7 @@ impl Daemon {
             return;
         };
         let courier = Arc::clone(&self.services.courier);
-        let at = self.generation;
-        self.outstanding += 1;
-        note::spawn(&self.post, move || {
-            Note::Delivered(at, courier.deliver(&transcript.text))
-        });
+        self.start(move |at| Note::Delivered(at, courier.deliver(&transcript.text)));
     }
 
     fn play(&mut self) {
@@ -88,13 +86,27 @@ impl Daemon {
         };
         let synthesizer = Arc::clone(&self.services.synthesizer);
         let player = Arc::clone(&self.services.player);
-        let at = self.generation;
-        self.outstanding += 1;
-        note::spawn(&self.post, move || {
+        self.start(move |at| {
             let said = synthesizer
                 .synthesize(spoken.text(), spoken.language())
                 .is_some_and(|samples| player.play(&samples));
             Note::Spoke(at, said)
         });
+    }
+
+    /// Begin one piece of work off the audio thread.
+    ///
+    /// The one place that records work as outstanding and stamps it with the
+    /// generation it belongs to. Written once because the three callers above
+    /// were otherwise the same eleven lines with a different middle, and a
+    /// spawner that forgot either half would either hang a file-driven run or
+    /// act on an utterance the speaker had already replaced.
+    fn start<F>(&mut self, work: F)
+    where
+        F: FnOnce(u64) -> Note + Send + 'static,
+    {
+        let at = self.generation;
+        self.outstanding += 1;
+        note::spawn(&self.post, move || work(at));
     }
 }

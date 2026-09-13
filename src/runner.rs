@@ -14,46 +14,25 @@
 
 mod act;
 mod note;
+mod parts;
 pub mod wav;
 
-use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::time::{Duration, Instant};
 
 use crate::capture::{Ring, SAMPLE_RATE, Source};
-use crate::service::{Courier, Ear, Player, Synthesizer, Transcriber, Transcript, Waker};
+use crate::service::{Ear, Transcript, Waker};
 use crate::speak::{self, Language, Outcome, Spoken};
 use crate::turn::{Event, Machine};
 
 pub use note::Note;
+pub use parts::{Services, Stopped};
 
 /// How long to wait for work in flight once the audio has run out.
 ///
 /// Only reached when the source is a file, which is to say under test: a
 /// microphone does not end. It bounds a test rather than a daemon.
 const DRAIN_LIMIT: Duration = Duration::from_secs(30);
-
-/// The four services a turn needs.
-#[derive(Clone)]
-pub struct Services {
-    /// Speech recognition.
-    pub transcriber: Arc<dyn Transcriber>,
-    /// The way a transcript reaches the agent.
-    pub courier: Arc<dyn Courier>,
-    /// Speech synthesis.
-    pub synthesizer: Arc<dyn Synthesizer>,
-    /// Where synthesized audio goes.
-    pub player: Arc<dyn Player>,
-}
-
-/// Why the daemon stopped.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Stopped {
-    /// Capture failed past its retry budget, and the machine called a halt.
-    CaptureGaveUp,
-    /// The audio ran out, which only a file does.
-    AudioEnded,
-}
 
 /// The daemon: a turn machine, the services it drives, and the audio it holds.
 pub struct Daemon {
@@ -120,6 +99,20 @@ impl Daemon {
         waker: &mut dyn Waker,
         ear: &mut dyn Ear,
     ) -> Stopped {
+        let stopped = self.pump(source, waker, ear);
+        // Always: a halt still has its own stop tone in flight, and a file that
+        // ran out still has a turn finishing behind it.
+        self.drain();
+        stopped
+    }
+
+    /// Read until something stops the daemon, without waiting for the tail.
+    fn pump(
+        &mut self,
+        source: &mut dyn Source,
+        waker: &mut dyn Waker,
+        ear: &mut dyn Ear,
+    ) -> Stopped {
         loop {
             if self.collect() {
                 return Stopped::CaptureGaveUp;
@@ -130,10 +123,7 @@ impl Daemon {
                         return Stopped::CaptureGaveUp;
                     }
                 }
-                Ok(None) => {
-                    self.drain();
-                    return Stopped::AudioEnded;
-                }
+                Ok(None) => return Stopped::AudioEnded,
                 Err(_) => {
                     let actions = self.machine.observe(Event::CaptureStopped);
                     self.carry_out(actions);
@@ -200,8 +190,10 @@ impl Daemon {
 
     /// Turn one note into an event, unless it belongs to a turn already past.
     fn absorb(&mut self, note: Note) -> bool {
-        if let Some(at) = note.generation() {
+        if note.counted() {
             self.outstanding = self.outstanding.saturating_sub(1);
+        }
+        if let Some(at) = note.generation() {
             if at != self.generation {
                 // A result for an utterance that has been replaced. Dropping it
                 // is the whole purpose of the generation.
@@ -220,6 +212,9 @@ impl Daemon {
             Note::Delivered(_, outcome) => Event::Delivered(outcome),
             Note::Spoke(_, true) => Event::Spoke,
             Note::Spoke(_, false) => Event::NotSpoken,
+            // Nothing depends on a cue having finished; it was counted only so
+            // that a run driven from a file waits for its own tones.
+            Note::Announced => return false,
             Note::Reply(message) => {
                 let Some(spoken) = self.decide_reply(&message) else {
                     return false;
