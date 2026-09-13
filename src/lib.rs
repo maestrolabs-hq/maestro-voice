@@ -21,6 +21,7 @@
 
 pub mod capture;
 pub mod endpoint;
+pub mod http;
 pub mod intake;
 pub mod runner;
 pub mod service;
