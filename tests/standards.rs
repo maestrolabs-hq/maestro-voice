@@ -30,7 +30,12 @@ const MAX_MODULE_LINES: usize = 250;
 /// file, a socket or a process has quietly undone that, and the failure would
 /// not show up as a broken test -- it would show up as a test nobody could
 /// write.
-const DECISION_MODULES: &[&str] = &["endpoint.rs"];
+/// Every module here states in its own documentation that it performs no input
+/// or output. This is what makes that claim checkable rather than aspirational.
+/// A submodule is a different file and is not covered: `wake/scorer.rs` runs a
+/// neural network and `speak/normalise.rs` is pure, and only the parents make
+/// the promise.
+const DECISION_MODULES: &[&str] = &["endpoint.rs", "speak.rs", "turn.rs", "wake.rs"];
 
 /// What the decision layer may not reach for.
 ///

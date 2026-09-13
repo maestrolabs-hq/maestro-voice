@@ -24,4 +24,5 @@ pub mod endpoint;
 pub mod intake;
 pub mod speak;
 pub mod tone;
+pub mod turn;
 pub mod wake;

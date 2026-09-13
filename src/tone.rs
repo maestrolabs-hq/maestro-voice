@@ -16,41 +16,10 @@ use std::time::Duration;
 
 use crate::capture::samples_in;
 
+mod score;
 mod wave;
 
-/// Peak amplitude as a fraction of full scale. Quiet on purpose: these fire on
-/// every false wake, and a cue at full scale is a cue the user turns off.
-const GAIN: f32 = 0.22;
-
-/// The gentler level for a cue that means "never mind".
-const SOFT_GAIN: f32 = 0.10;
-
-/// One part of a cue: a tone at a pitch, or a silence.
-struct Step {
-    hertz: f32,
-    millis: u64,
-}
-
-const fn tone(hertz: f32, millis: u64) -> Step {
-    Step { hertz, millis }
-}
-
-const fn rest(millis: u64) -> Step {
-    Step { hertz: 0.0, millis }
-}
-
-static LISTENING: [Step; 1] = [tone(880.0, 90)];
-static DISMISSED: [Step; 1] = [tone(440.0, 70)];
-static MUTED: [Step; 1] = [tone(294.0, 220)];
-static REFUSED: [Step; 3] = [tone(330.0, 90), rest(70), tone(330.0, 90)];
-static BLOCKED: [Step; 5] = [
-    tone(660.0, 70),
-    rest(60),
-    tone(660.0, 70),
-    rest(60),
-    tone(660.0, 70),
-];
-static STOPPED: [Step; 1] = [tone(220.0, 600)];
+use score::{BLOCKED, DISMISSED, GAIN, LISTENING, MUTED, REFUSED, SOFT_GAIN, STOPPED, Step};
 
 /// What the daemon has to say without speaking.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -111,7 +80,7 @@ impl Cue {
 
         for step in self.score() {
             let count = samples_in(Duration::from_millis(step.millis));
-            if step.hertz == 0.0 {
+            if step.is_rest() {
                 wave::silence(&mut out, count);
             } else {
                 wave::append(&mut out, step.hertz, count, gain);
