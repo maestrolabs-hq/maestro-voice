@@ -1,10 +1,9 @@
 # Package identity, dependencies and lint policy.
 # lang-check denies clippy warnings (-D warnings), so "warn" below means error in CI.
 #
-# The dependency table is empty on purpose. `cargo machete` is a fast-tier gate
-# and fails on a declared dependency nothing imports, so a crate arrives with
-# the first code that uses it rather than ahead of it. The ONNX runtime binding
-# lands with the wake-word detector, which is the first thing that runs a model.
+# A crate arrives with the first code that uses it rather than ahead of it:
+# `cargo machete` is a fast-tier gate and fails on a declared dependency
+# nothing imports.
 [package]
 name = "maestro-voice"
 version = "0.1.0"
@@ -18,6 +17,19 @@ name = "maestro-voice"
 path = "src/main.rs"
 
 [dependencies]
+# The ONNX runtime, used only by `src/wake/scorer.rs`.
+#
+# `download-binaries` fetches a prebuilt ONNX Runtime at build time and links
+# it statically, so the shipped binary needs no system package and no
+# `ORT_DYLIB_PATH`; `tls-native` is what that download needs to compile.
+# The archive is verified against a SHA256 pinned inside the crate, so pinning
+# `ort` in `Cargo.lock` pins the runtime. It does mean the build needs network
+# access. See `docs/adr/0003-the-wake-word-runtime-and-its-weights.md`.
+ort = { version = "2.0.0-rc.13", default-features = false, features = [
+    "download-binaries",
+    "tls-native",
+    "std",
+] }
 
 [lints.rust]
 unsafe_code = "forbid"
@@ -27,3 +39,16 @@ pedantic = { level = "warn", priority = -1 }
 too_many_lines = "warn"
 cognitive_complexity = "warn"
 too_many_arguments = "warn"
+
+# Test-only, and neither is reachable from the shipped binary.
+[dev-dependencies]
+# Reads the WAV corpus. The standard library would nearly do, and that "nearly"
+# is the point: the fixtures carry a `LIST` chunk between `fmt ` and `data`,
+# because that is what the generator writes. A reader that assumes `data`
+# follows `fmt ` reads 26 bytes of metadata as audio and still produces plausible
+# scores, which is precisely the class of silent fault this lane exists to catch.
+hound = "3.5.1"
+# Verifies the fetched weights against the committed manifest. Preferred over a
+# hand-rolled digest, which was tried: 130 lines of cryptography in a test file,
+# fighting the pedantic lints, to avoid one well-known crate.
+sha2 = "0.11.0"

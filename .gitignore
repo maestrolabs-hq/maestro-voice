@@ -91,3 +91,6 @@ crash.log
 *.retry
 
 # Kubernetes and Docker need no additional ignores.
+
+# Fetched model weights: not redistributable, see docs/adr/0003.
+/models/

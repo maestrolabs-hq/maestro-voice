@@ -22,3 +22,4 @@
 pub mod capture;
 pub mod endpoint;
 pub mod tone;
+pub mod wake;
