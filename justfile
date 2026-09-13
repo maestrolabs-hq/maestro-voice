@@ -17,8 +17,12 @@ common-check:
 
 fmt: common-fmt lang-fmt
 
+# `typos` is deliberately absent: it is configured to report rather than
+# rewrite, for the reason recorded in .pre-commit-config.yaml, so it has
+# nothing to contribute to a formatting pass. A reported misspelling is fixed
+# by editing the word, or by binding a deliberate one in `_typos.toml`.
 common-fmt:
-    prek run --all-files taplo-format shfmt typos trailing-whitespace end-of-file-fixer mixed-line-ending
+    prek run --all-files taplo-format shfmt trailing-whitespace end-of-file-fixer mixed-line-ending
 
 test: lang-test polyglot-check
 

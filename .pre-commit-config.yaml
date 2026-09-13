@@ -35,10 +35,18 @@ repos:
         exclude: '^\.pre-commit-config\.yaml$'
 
   # English spelling is a separate gate from machine-path detection.
+  # Report misspellings; do not rewrite them. The hook's own default args are
+  # `[--write-changes, --force-exclude]`, and the write is the dangerous half:
+  # a first `git commit` fails having already edited the tree, and a following
+  # `git add -A && git commit` then passes with the correction in history,
+  # never having shown which word changed. `just fmt` is where a tree is
+  # rewritten on purpose. A reported typo is fixed by editing it, or by
+  # binding the deliberate spelling in `_typos.toml`.
   - repo: https://github.com/crate-ci/typos
     rev: v1.50.1
     hooks:
       - id: typos
+        args: [--force-exclude]
 
   - repo: https://github.com/rvben/rumdl-pre-commit
     rev: v0.2.71
@@ -56,7 +64,19 @@ repos:
     rev: v0.9.3
     hooks:
       - id: taplo-format
+      # Syntax linting only: the hook's default `--default-schema-catalogs`
+      # fetches a remote catalog that no longer decodes against the taplo
+      # version pinned here, so every run ends in `failed to load schema
+      # catalog` before a single file is judged. This is not a network
+      # problem; it fails the same way in CI, where there is network.
+      #
+      # What remains still fails on malformed TOML, which was verified by
+      # linting a file with an unterminated array and watching it exit 1.
+      # What is lost is catalog-driven schema validation; an inline
+      # `#:schema` directive still applies. Restore the flag when the
+      # catalog and taplo agree again.
       - id: taplo-lint
+        args: []
 
   - repo: https://github.com/shellcheck-py/shellcheck-py
     rev: v0.11.0.1
