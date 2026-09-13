@@ -16,22 +16,10 @@
 /// declines to name a language is not a failure.
 #[must_use]
 pub fn field(body: &str, name: &str) -> Option<String> {
-    let key = format!("\"{name}\"");
-    let mut from = 0;
-    while let Some(at) = body[from..].find(&key) {
-        let after = from + at + key.len();
-        let rest = body[after..].trim_start();
-        if let Some(value) = rest.strip_prefix(':') {
-            let value = value.trim_start();
-            if let Some(text) = value.strip_prefix('"') {
-                return Some(unescape(text));
-            }
-            // A field of this name that is not a string: keep looking, since a
-            // later one may be the one asked for.
-        }
-        from = after;
-    }
-    None
+    // The first of all of them, rather than a second walk of the same rules.
+    // Two spellings of "find a string field" would eventually disagree about
+    // an escape, and the one used less often would be the wrong one.
+    fields(body, name).into_iter().next()
 }
 
 /// Every value of every string field named `name`, in the order they appear.

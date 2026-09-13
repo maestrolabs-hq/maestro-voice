@@ -29,16 +29,45 @@ See [NORTHSTAR.md](NORTHSTAR.md) for commitments and honest measurement.
 
 ## Use
 
-Nothing is wired yet. The binary compiles and says so:
+Fetch the wake-word weights once, then ask what is not ready:
 
 ```text
-$ cargo run
-maestro-voice 0.1.0
-The turn loop is not wired yet: no microphone is opened and no model is called.
+just fetch-wake-models
+maestro-voice check
 ```
 
-The endpointing rule in `src/endpoint.rs` is real and tested; everything around
-it is not built.
+`check` starts nothing. It reads the router's catalog at `GET /v1/models`,
+never `GET /models/<id>/health`, because that relays to the child and would
+load a model to answer a question about readiness. Its output has three
+standings rather than two:
+
+```text
+ok           audio transport        'ffmpeg' at /usr/bin/ffmpeg
+ok           microphone             'default' delivered 1280 samples
+unknown      speaker                'default' cannot be confirmed: ffmpeg exits 0 ...
+PROBLEM      voice agent            herdr does not know an agent named 'voice'
+                                    fix: start it with 'herdr agent start', ...
+```
+
+`unknown` is not a pass and not a failure: it is something this check cannot
+determine, and the line says why. Only `PROBLEM` sets the exit status.
+
+Then:
+
+```text
+maestro-voice run
+```
+
+Settings come from the file named by `MAESTRO_VOICE_CONFIG`, or
+`maestro-voice/config` under the usual configuration directory. Every setting
+can be overridden for one run by `MAESTRO_VOICE_<SETTING>` -- so
+`MAESTRO_VOICE_WAKE_THRESHOLD=0.6 maestro-voice run` tries a threshold without
+editing anything. `maestro-voice help` lists the commands; `Config::keys` is
+the full list of settings.
+
+The two speech entries are served by the maestro-llamacpp router, which admits
+them against the same memory budget as every other local model. This daemon
+loads nothing itself.
 
 ## The spoken reply
 
@@ -133,6 +162,16 @@ happen" is a number rather than an impression.
 a running Herdr session to deliver into, and `ffmpeg` on the path. Each is a
 process that can be absent or die, and the daemon reports that rather than
 pretending otherwise.
+
+**A misconfigured speaker cannot be detected.** `ffmpeg` exits 0 when the sink
+does not exist, because the audio server plays to its default instead. So a
+wrong `playback_device` is audible on the wrong device rather than reported,
+and `check` says so rather than showing a tick it has not earned.
+
+**Speech is told from the room by loudness, not by a neural detector.** It
+adapts to the room, and it cannot separate a loud stationary room from someone
+talking without pausing. The limit and what replaces it are in
+[ADR 0005](docs/adr/0005-a-loudness-gate-until-a-neural-one-earns-its-place.md).
 
 ## What this is not
 
