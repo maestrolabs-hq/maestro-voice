@@ -31,3 +31,8 @@ style = "ordered"
 [per-file-ignores]
 # A PR template starts at a second-level heading because the PR title is the first-level one.
 ".github/pull_request_template.md" = ["MD041"]
+# A RIFF chunk identifier is four bytes, so the WAV format chunk is literally
+# `fmt ` with a trailing space. The source spells it that way too, matching the
+# `b"fmt "` the parser compares against, and MD038 reads the space as stray.
+# Correcting it would make the document disagree with the bytes it describes.
+"docs/adr/0004-hostile-input-instead-of-a-fuzzer-nobody-can-run.md" = ["MD038"]

@@ -5,6 +5,7 @@
 These rules apply to authoring, review, and source control changes.
 
 ## P-007 — Boy Scout rule
+
 - **Requirement:** Authors SHOULD leave code better within the diff they already have reason to touch, but MUST NOT use this rule to justify a drive-by refactor.
 - **Applicability:** Any change touching existing code or documentation.
 - **Evidence:** Review shows the bounded improvement or records why it was deferred.
