@@ -7,6 +7,30 @@ yanked = "deny"
 allow = ["MIT", "MIT-0", "Apache-2.0", "Unicode-3.0", "Zlib"]
 confidence-threshold = 0.93
 
+# Scoped to one crate rather than added to `allow`, so a second dependency
+# arriving under the same licence still stops the build and gets its own look.
+#
+# `webpki-root-certs` carries Mozilla's root certificate data, and CDLA-
+# Permissive-2.0 is the licence of that data rather than of any code. It is a
+# build-only dependency: `ort-sys` uses `ureq` to fetch the ONNX Runtime while
+# building, and none of it is linked into the shipped binary. It cannot be
+# avoided while the runtime is downloaded, because `ureq`'s `_tls` feature
+# pulls the bundled roots in for every TLS backend, not just rustls.
+#
+# What removes it: building ONNX Runtime from source instead of downloading a
+# prebuilt one. See `docs/adr/0003-the-wake-word-runtime-and-its-weights.md`.
+[[licenses.exceptions]]
+name = "webpki-root-certs"
+allow = ["CDLA-Permissive-2.0"]
+
+# Also build-only, also from `ort-sys`, and this one earns its place: it is
+# what checks the downloaded ONNX Runtime against the SHA256 pinned inside the
+# crate. ISC is permissive and OSI approved, and differs from MIT only in
+# wording. Removed by the same thing that removes the crate above.
+[[licenses.exceptions]]
+name = "hmac-sha256"
+allow = ["ISC"]
+
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
