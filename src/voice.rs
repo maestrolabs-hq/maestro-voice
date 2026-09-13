@@ -24,6 +24,10 @@ use std::collections::VecDeque;
 
 use crate::service::Ear;
 
+mod level;
+
+pub use level::loudness;
+
 /// How far above the floor a chunk must be to count as speech.
 ///
 /// A doubling in amplitude. Speech against a quiet room is many times this; the
@@ -94,24 +98,6 @@ impl Gate {
     }
 }
 
-/// The root-mean-square amplitude of a chunk.
-#[must_use]
-pub fn loudness(chunk: &[i16]) -> f32 {
-    if chunk.is_empty() {
-        return 0.0;
-    }
-    let total: f64 = chunk.iter().map(|s| f64::from(*s) * f64::from(*s)).sum();
-    // A chunk is 1280 samples, so the count is exact in a double many times
-    // over; the lint is about lengths this code cannot produce.
-    #[allow(clippy::cast_precision_loss)]
-    let mean = total / chunk.len() as f64;
-    // Lossy by construction: an amplitude needs six significant figures and
-    // single precision carries seven.
-    #[allow(clippy::cast_possible_truncation)]
-    let rms = mean.sqrt() as f32;
-    rms
-}
-
 impl Ear for Gate {
     fn speech(&mut self, chunk: &[i16]) -> bool {
         let level = loudness(chunk);
@@ -129,7 +115,7 @@ impl Ear for Gate {
 
 #[cfg(test)]
 mod tests {
-    use super::{FLOOR_MINIMUM, Gate, WINDOW, loudness};
+    use super::{FLOOR_MINIMUM, Gate, WINDOW};
     use crate::capture::CHUNK_SAMPLES;
     use crate::service::Ear;
 
@@ -240,21 +226,6 @@ mod tests {
         assert!(
             gate.speech(&at(5000)),
             "a shout into a fresh gate is speech, not its own new floor"
-        );
-    }
-
-    #[test]
-    fn loudness_is_the_amplitude_rather_than_the_peak_or_the_sum() {
-        // A square wave's root-mean-square is its amplitude, which is the one
-        // case with an exact answer to check against.
-        let level = loudness(&at(1000));
-        assert!(
-            (level - 1000.0).abs() < 1.0,
-            "a square wave at 1000 must measure 1000, measured {level}"
-        );
-        assert!(
-            loudness(&[]) < f32::EPSILON,
-            "no audio has no loudness rather than an undefined one"
         );
     }
 }

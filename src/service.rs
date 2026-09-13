@@ -100,6 +100,23 @@ pub trait Ear: Send {
     fn speech(&mut self, chunk: &[i16]) -> bool;
 }
 
+/// Hearing the wake phrase.
+///
+/// A trait for two reasons. The engine behind it runs a neural network, so a
+/// test of the turn loop would otherwise need model weights that this
+/// repository deliberately does not ship. And the engine's licence makes it the
+/// component most likely to be replaced, which is a boundary worth keeping
+/// honest. See `docs/adr/0003-the-wake-word-runtime-and-its-weights.md`.
+pub trait Waker: Send {
+    /// Whether the wake phrase completed on this chunk.
+    ///
+    /// A scorer that fails is not an error worth ending the daemon for: the
+    /// honest answer is that the phrase was not heard, and the caller keeps
+    /// listening. An implementation that cannot recover says so by returning
+    /// `false` forever, which `check` is the place to notice.
+    fn woke(&mut self, chunk: &[i16]) -> bool;
+}
+
 #[cfg(test)]
 mod tests {
     use super::Transcript;
