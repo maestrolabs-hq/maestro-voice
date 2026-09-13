@@ -13,9 +13,12 @@
 
 use std::fmt;
 use std::io;
+use std::time::Duration;
 
+pub mod ring;
 pub mod wav;
 
+pub use ring::Ring;
 pub use wav::WavSource;
 
 /// Samples per second. Every source in this crate produces this rate, and one
@@ -27,6 +30,18 @@ pub const CHUNK_SAMPLES: usize = 1280;
 
 /// Bytes in one chunk, as they arrive on a pipe.
 pub const CHUNK_BYTES: usize = CHUNK_SAMPLES * 2;
+
+/// How many samples `duration` holds at `SAMPLE_RATE`.
+///
+/// Durations are how the rest of the crate talks about audio, because a window
+/// of three hundred milliseconds means something to a reader and a window of
+/// four thousand eight hundred samples does not. This is the one place the two
+/// are converted.
+#[must_use]
+pub fn samples_in(duration: Duration) -> usize {
+    let exact = duration.as_nanos() * u128::from(SAMPLE_RATE) / 1_000_000_000;
+    usize::try_from(exact).unwrap_or(usize::MAX)
+}
 
 /// A stream of audio chunks.
 ///
@@ -103,6 +118,18 @@ mod tests {
             "one chunk must be one hop"
         );
         assert_eq!(CHUNK_BYTES, CHUNK_SAMPLES * 2, "sixteen bits per sample");
+    }
+
+    #[test]
+    fn a_duration_converts_to_the_sample_count_it_holds() {
+        use super::samples_in;
+        use std::time::Duration;
+
+        assert_eq!(samples_in(Duration::from_secs(1)), 16_000);
+        assert_eq!(samples_in(Duration::from_millis(300)), 4_800);
+        assert_eq!(samples_in(Duration::ZERO), 0);
+        // Sub-sample durations round down: a partial sample cannot be held.
+        assert_eq!(samples_in(Duration::from_nanos(1)), 0);
     }
 
     #[test]

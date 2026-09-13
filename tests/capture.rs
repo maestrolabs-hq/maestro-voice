@@ -11,7 +11,8 @@
 //! misreadings, and a test built on the reader's own idea of the format would
 //! agree with it however wrong it was.
 
-use maestro_voice::capture::{CHUNK_SAMPLES, SAMPLE_RATE, Source, WavSource};
+use maestro_voice::capture::{CHUNK_SAMPLES, Ring, SAMPLE_RATE, Source, WavSource, samples_in};
+use std::time::Duration;
 
 /// A RIFF/WAVE file carrying `samples`, written from the specification.
 ///
@@ -183,6 +184,96 @@ fn a_wav_whose_data_chunk_is_truncated_is_refused() {
     assert!(
         refusal.to_string().contains("truncated"),
         "the refusal must name truncation, got: {refusal}"
+    );
+}
+
+#[test]
+fn a_ring_keeps_only_the_most_recent_audio_it_has_room_for() {
+    let mut ring = Ring::holding(Duration::from_millis(500));
+    let capacity = samples_in(Duration::from_millis(500));
+
+    // Three times its capacity goes in; only the last capacity-worth stays.
+    let written = ramp(capacity * 3);
+    for chunk in written.chunks(CHUNK_SAMPLES) {
+        ring.write(chunk);
+    }
+
+    assert_eq!(
+        ring.len(),
+        capacity,
+        "a ring must not grow past its capacity"
+    );
+    assert_eq!(
+        ring.pre_roll(Duration::from_millis(500)),
+        written[written.len() - capacity..],
+        "what remains must be the newest audio, not the oldest"
+    );
+}
+
+#[test]
+fn the_pre_roll_is_the_tail_of_the_audio_and_keeps_its_order() {
+    // A wake word fires at the END of the phrase, so the sentence that follows
+    // has already begun. The pre-roll is how the first word is not clipped.
+    let mut ring = Ring::holding(Duration::from_secs(2));
+    let written = ramp(samples_in(Duration::from_secs(1)));
+    ring.write(&written);
+
+    let roll = ring.pre_roll(Duration::from_millis(300));
+
+    assert_eq!(roll.len(), samples_in(Duration::from_millis(300)));
+    assert_eq!(roll.len(), 4800, "300ms at 16 kHz is 4800 samples");
+    assert_eq!(
+        roll,
+        written[written.len() - 4800..],
+        "the pre-roll must be the most recent audio, in the order it arrived"
+    );
+}
+
+#[test]
+fn a_pre_roll_longer_than_the_audio_returns_what_exists_rather_than_silence() {
+    // Waking two hundred milliseconds after the daemon starts must not
+    // manufacture the second of audio that never happened.
+    let mut ring = Ring::holding(Duration::from_secs(2));
+    let written = ramp(1000);
+    ring.write(&written);
+
+    let roll = ring.pre_roll(Duration::from_secs(1));
+
+    assert_eq!(roll, written, "short is honest; padded silence is not");
+}
+
+#[test]
+fn a_ring_with_no_audio_yields_an_empty_pre_roll() {
+    let ring = Ring::holding(Duration::from_secs(2));
+
+    assert!(ring.is_empty());
+    assert!(ring.pre_roll(Duration::from_millis(300)).is_empty());
+}
+
+#[test]
+fn a_pre_roll_of_no_duration_yields_nothing() {
+    let mut ring = Ring::holding(Duration::from_secs(2));
+    ring.write(&ramp(1000));
+
+    assert!(
+        ring.pre_roll(Duration::ZERO).is_empty(),
+        "asking for no audio must return no audio, not everything"
+    );
+}
+
+#[test]
+fn a_single_write_larger_than_the_ring_keeps_its_tail() {
+    let mut ring = Ring::holding(Duration::from_millis(100));
+    let capacity = samples_in(Duration::from_millis(100));
+    let written = ramp(capacity * 2 + 13);
+
+    ring.write(&written);
+
+    assert_eq!(ring.len(), capacity);
+    assert_eq!(
+        ring.pre_roll(Duration::from_millis(100)),
+        written[written.len() - capacity..],
+        "one oversized write must behave like many small ones"
     );
 }
 
