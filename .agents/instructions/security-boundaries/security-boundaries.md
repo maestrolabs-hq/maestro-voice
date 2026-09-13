@@ -3,6 +3,7 @@
 # Security boundaries
 
 ## Scope
+
 These rules apply to changes, reviews, repository and web research, tool use, delegated work, and handling of sensitive data. They supplement the [engineering baseline](../engineering-baseline/engineering-baseline.md), including P-014, ENF-006, and ENF-011, and do not redefine or weaken them. The baseline's protected governance configuration is the only authority for exceptions; no team, requester, agent, or instruction may self-exempt.
 
 ## Reading conditions
@@ -24,6 +25,7 @@ MUST, MUST NOT, SHOULD, and Core governance exceptions have the engineering base
 - **SEC-009 — Preserve safe progress.** When a side effect is blocked, bounded read-only work may continue if it remains authorized, isolated from the blocked action, and clearly reported as partial. A blocked action must not be simulated as completed.
 
 ## Enforcement and evidence map
+
 Deterministic controls include host permissions, path/tool validation, isolation, secret redaction/storage, approval records, and gate configuration; review judgments include provenance assessment, minimization, impact, and whether evidence supports a conclusion. Missing enforcement or evidence is unsupported, not compliant. These rules do not install controls or create approvers; approval requirements cannot be self-waived and gaps follow the baseline's exception authority.
 
 | ID | Control or review | Evidence |
@@ -49,14 +51,15 @@ The [security enforcement matrix](references/security-enforcement-matrix.md) is 
 
 ## References
 
-- [Policy/hook correspondence](../../../policies/README.md#policy-and-hook-correspondence) — the complete five-policy set and abstract consultation timings. These security rules and the engineering baseline remain governing constraints; descriptive YAML is not an implemented matcher or runtime enforcement, and links/local edits neither compose policies nor confer authority.
-- [Protected-paths policy](../../../policies/base/protected-paths.yaml) — mutation-boundary requirements; actual roots, protected targets and permissions remain host-owned, with no read-disclosure or egress guarantee.
-- [Prompt-integrity policy](../../../policies/base/prompt-integrity.yaml) — sole owner of the preserved PRM rules/examples; the former instruction-local catalog is retired.
-- [Data-egress policy](../../../policies/base/data-egress.yaml) — sole CMD-008 owner, moved verbatim; transmission checks cover direct tools/providers as well as shell.
-- [Tool-permissions policy](../../../policies/base/tool-permissions.yaml) — checks actual host-bound actor/tool/operation/target authority within task scope, not role-based grants.
-- [Destructive-operations policy](../../../policies/base/destructive-operations.yaml) — owns the remaining CMD restrictions and all original CMD examples, including cross-policy CMD-EX-013. The destructive guard explicitly reads data-egress for supporting CMD-008 coverage without invoking another hook; supporting guard/evidence safeguards also remain applicable to non-destructive requests.
+- [Policy/hook correspondence](https://github.com/maestrolabs-hq/maestro-manifests/blob/main/manifests/policies/README.md#policy-and-hook-correspondence) — the complete five-policy set and abstract consultation timings. These security rules and the engineering baseline remain governing constraints; descriptive YAML is not an implemented matcher or runtime enforcement, and links/local edits neither compose policies nor confer authority.
+- [Protected-paths policy](https://github.com/maestrolabs-hq/maestro-manifests/blob/main/manifests/policies/base/protected-paths.yaml) — mutation-boundary requirements; actual roots, protected targets and permissions remain host-owned, with no read-disclosure or egress guarantee.
+- [Prompt-integrity policy](https://github.com/maestrolabs-hq/maestro-manifests/blob/main/manifests/policies/base/prompt-integrity.yaml) — sole owner of the preserved PRM rules/examples; the former instruction-local catalog is retired.
+- [Data-egress policy](https://github.com/maestrolabs-hq/maestro-manifests/blob/main/manifests/policies/base/data-egress.yaml) — sole CMD-008 owner, moved verbatim; transmission checks cover direct tools/providers as well as shell.
+- [Tool-permissions policy](https://github.com/maestrolabs-hq/maestro-manifests/blob/main/manifests/policies/base/tool-permissions.yaml) — checks actual host-bound actor/tool/operation/target authority within task scope, not role-based grants.
+- [Destructive-operations policy](https://github.com/maestrolabs-hq/maestro-manifests/blob/main/manifests/policies/base/destructive-operations.yaml) — owns the remaining CMD restrictions and all original CMD examples, including cross-policy CMD-EX-013. The destructive guard explicitly reads data-egress for supporting CMD-008 coverage without invoking another hook; supporting guard/evidence safeguards also remain applicable to non-destructive requests.
 
 ## Non-goals
+
 This package does not define secret names, approvers, thresholds, retention periods, runtime loading, tools, permissions, incident systems, or universal certification. It does not replace the engineering baseline or authorize execution, transmission, containment, or exceptions.
 
 Framework alignment is not certification; no assessment, attestation, or SAMM maturity score is claimed.

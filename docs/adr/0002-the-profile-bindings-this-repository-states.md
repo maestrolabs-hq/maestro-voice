@@ -31,7 +31,7 @@ reconstruct it from a workflow file.
 | `compatibility.platforms` | Linux only, for now | the matrix in `.github/workflows/fast-rust.yml` |
 | `architecture.enforcement` | the decision layer performs no input or output | `tests/standards.rs` |
 | `limits.module_physical_lines` | 250, counting whole files including tests | `tests/standards.rs` |
-| `fuzzing.targets_and_budget` | unbound; no parser exists yet | the `fuzz` job is removed, not disabled |
+| `fuzzing.targets_and_budget` | unbound; see [ADR 0004](0004-hostile-input-instead-of-a-fuzzer-nobody-can-run.md) | the `fuzz` job is removed, not disabled |
 | `auditable_build.dependency_metadata_retention_verification` | `cargo audit bin` against the released binary | recorded here; wired with the release workflow |
 | `packaging.select_one` | `native_cargo_packaging`, the default | `publish = false` in `Cargo.toml` |
 | `reports.services.coverage` | `artifact_only`, the default | the upload step in `.github/workflows/heavy-rust.yml` |
@@ -56,6 +56,15 @@ repository will hand-roll HTTP parsing and read audio container headers, so it
 will qualify. It does not qualify yet, because neither exists. A heavy job that
 fails every week until then is noise that trains its reader to ignore heavy
 results, so the job is removed and its return condition is written down instead.
+
+*Since amended.* Both parsers landed, the condition below was met, and the
+decision was reopened as it said it should be.
+[ADR 0004](0004-hostile-input-instead-of-a-fuzzer-nobody-can-run.md) records
+what came of that: the key stays unbound and the job stays absent, because
+neither `cargo-fuzz` nor a nightly toolchain is installed on any machine that
+runs these gates, and `tests/hostile.rs` buys the same property on the
+toolchain that is. Read that ADR for the current state; the paragraph above is
+kept as it was written.
 
 **Application compatibility: not applicable.** `cargo-semver-checks` applies to
 published libraries with a previous release. This crate sets `publish = false`
@@ -99,5 +108,8 @@ That has not run on a runner yet, and a gate whose installation is untested is
 a gate that can fail for a reason unrelated to the code.
 
 What reopens the platform decision: a capture implementation and a delivery
-path that work on a second platform, with evidence from that platform. What
-reopens the fuzzing decision: the first hand-rolled parser landing in `src`.
+path that work on a second platform, with evidence from that platform.
+
+The fuzzing condition -- the first hand-rolled parser landing in `src` -- has
+been met and acted on. Its replacement is in
+[ADR 0004](0004-hostile-input-instead-of-a-fuzzer-nobody-can-run.md).

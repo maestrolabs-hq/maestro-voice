@@ -10,8 +10,25 @@
 #
 # This narrows a false positive; it does not disable a check. Everything else
 # `typos` knows about still applies.
+
+# Identifiers are matched whole, before the word splitter runs. Bindings here
+# therefore cost the least: they accept one exact spelling and leave the
+# component words checked everywhere else.
 [default.extend-identifiers]
 FND = "FND"
 
+# `wake_threshhold` is misspelled on purpose. It is the input to
+# `a_misspelled_setting_is_reported_rather_than_ignored` in tests/config.rs,
+# which proves the configuration reader names an unknown key instead of
+# ignoring it. Correcting the spelling turns the input into a valid key, and
+# the test then asserts a problem that can no longer happen. Do not "fix" it.
+#
+# Bound as an identifier rather than a word so that a genuine `threshhold`
+# typo is still caught anywhere else, including elsewhere in that same file.
+wake_threshhold = "wake_threshhold"
+
+# `FND` also appears lowercased in heading anchors that other documents link
+# to, and an identifier binding is case-sensitive. This second entry is what
+# covers `fnd`; nothing else needs word-level treatment.
 [default.extend-words]
 FND = "FND"

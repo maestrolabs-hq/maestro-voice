@@ -1,10 +1,15 @@
 # Update root manifests only; nested manifests need a directories list as a project binding.
 # Ansible has no Dependabot ecosystem.
 # Unused ecosystems are expected: a Dependabot job notice, not a CI failure (verify on first deployment).
+# Every ecosystem waits seven days before proposing a newly published version, so a release that is
+# compromised and then yanked is unlikely to reach a pull request here. Seven is zizmor's floor for
+# the dependabot-cooldown audit; below it the audit reports an insufficient implicit default.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: "/"
+    cooldown:
+      default-days: 7
     schedule:
       interval: weekly
       day: monday
@@ -16,6 +21,8 @@ updates:
 
   - package-ecosystem: cargo
     directory: "/"
+    cooldown:
+      default-days: 7
     schedule:
       interval: weekly
       day: monday
@@ -27,6 +34,8 @@ updates:
 
   - package-ecosystem: uv
     directory: "/"
+    cooldown:
+      default-days: 7
     schedule:
       interval: weekly
       day: monday
@@ -38,6 +47,8 @@ updates:
 
   - package-ecosystem: pip
     directory: "/"
+    cooldown:
+      default-days: 7
     schedule:
       interval: weekly
       day: monday
@@ -49,6 +60,8 @@ updates:
 
   - package-ecosystem: npm
     directory: "/"
+    cooldown:
+      default-days: 7
     schedule:
       interval: weekly
       day: monday
@@ -60,6 +73,8 @@ updates:
 
   - package-ecosystem: maven
     directory: "/"
+    cooldown:
+      default-days: 7
     schedule:
       interval: weekly
       day: monday
@@ -71,6 +86,8 @@ updates:
 
   - package-ecosystem: gradle
     directory: "/"
+    cooldown:
+      default-days: 7
     schedule:
       interval: weekly
       day: monday
@@ -82,6 +99,8 @@ updates:
 
   - package-ecosystem: gomod
     directory: "/"
+    cooldown:
+      default-days: 7
     schedule:
       interval: weekly
       day: monday
@@ -93,6 +112,8 @@ updates:
 
   - package-ecosystem: terraform
     directory: "/"
+    cooldown:
+      default-days: 7
     schedule:
       interval: weekly
       day: monday
@@ -104,6 +125,8 @@ updates:
 
   - package-ecosystem: docker
     directory: "/"
+    cooldown:
+      default-days: 7
     schedule:
       interval: weekly
       day: monday

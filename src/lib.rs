@@ -19,4 +19,20 @@
 //! classified frames, not by code that opens a microphone. See
 //! `docs/adr/0001-the-capture-source-is-a-seam.md`.
 
+pub mod agent;
+pub mod capture;
+pub mod check;
+pub mod config;
 pub mod endpoint;
+pub mod http;
+pub mod intake;
+pub mod listen;
+pub mod runner;
+pub mod service;
+pub mod speak;
+pub mod speaker;
+pub mod speech;
+pub mod tone;
+pub mod turn;
+pub mod voice;
+pub mod wake;

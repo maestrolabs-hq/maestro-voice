@@ -1,0 +1,24 @@
+# openWakeWord's own scores for the corpus beside this file, one line
+# per fixture: the file name, then one float32 per 1280-sample chunk as
+# a hexadecimal bit pattern, in order.
+#
+# Produced by record_reference.py against openwakeword 0.4.0 on ONNX
+# Runtime 1.28.0 from PyPI, with the hey_jarvis_v0.1 head. Regenerate
+# whenever the corpus changes; the two are a matched pair and neither
+# means anything without the other.
+#
+# The port is held to these within 1e-6, not bit for bit. It links a
+# different BUILD of ONNX Runtime 1.28.0, and two builds do not agree on
+# float rounding across different SIMD paths. The bound, the measured
+# floor beneath it and the injected faults above it are all recorded in
+# tests/wake_equivalence.rs.
+#
+# Bit patterns rather than decimal text, and the tolerance is why this
+# matters more rather than less: decimal round-tripping between two
+# languages would quietly eat part of a margin only 3x wide.
+
+near_miss_en.wav 00000000 00000000 00000000 00000000 00000000 00001636 00a01a39 a0f3aa3c 683eb23e 94484e3e c0c0da3c 58de0f3d a8ce523d 001d843a 00d01c3a 00b64b3a 00c0ad37 00003e36 0000cb36 00002f37 00c08d37 0000f136
+negative_speech_en.wav 00000000 00000000 00000000 00000000 00000000 0000e035 00000e36 00001436 00003236 00001236 00001a36 00003236 00003636 00001c36 00003e36 00007e36 00005e36 00004236 00006c36 0000b736 0000b936 00007436 00002c36 00002c36 00003236 00005636 0000c036 00008a36
+negative_speech_fr.wav 00000000 00000000 00000000 00000000 00000000 0000f435 00004a36 00005836 00003636 00000a36 00000a36 00001836 00002236 00002e36 00003636 00002a36 00001a36 00000c36 0000ec35 0000dc35 0000d835 00000636 00001036 00000636 00002e36 00007036 0000b036 00009337 00804137 00000337 00003e37 00805e37 00800637 0000c236 00009736
+room_tone.wav 00000000 00000000 00000000 00000000 00000000 00001036 00009836 00800837 00c0bf37 00202438 00c0f238 00fcc039 001a023a 0054a43a 00b65d3a 00186339 00001538 0000ad37 00006237 00006637 00805637 00801237 00800c37 0000cc36 0000d836 0000d136 00000337 00800437 00003537 00004937 00002c37 00003a37 00003037 00804f37 00004437 00803337 00803337
+wake_hey_jarvis_en.wav 00000000 00000000 00000000 00000000 00000000 00000236 00109c39 9c992f3e c8eb783f 3e1d7e3f 21027f3f 6f647f3f 43977f3f 13507f3f d2607e3f
