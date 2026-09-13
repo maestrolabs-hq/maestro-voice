@@ -91,10 +91,6 @@ a running Herdr session to deliver into, and `ffmpeg` on the path. Each is a
 process that can be absent or die, and the daemon reports that rather than
 pretending otherwise.
 
-**Duplication is an unqualified gate.** The profile requires `similarity-rs` to
-be proved against a real duplicate before its result means anything, and that
-proof has not been done here.
-
 ## What this is not
 
 Not a dictation tool: the transcript becomes a prompt for an agent, not text in

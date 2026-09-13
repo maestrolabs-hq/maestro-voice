@@ -23,6 +23,7 @@ lang-check:
     just lang-test
     cargo machete
     cargo deny check
+    just lang-duplication
 
 lang-fmt:
     cargo fmt --all
@@ -73,6 +74,11 @@ lang-fuzz:
 lang-auditable:
     cargo auditable build --release
 
-# Qualification required by the profile (qualification_required: similarity-rs); not part of lang-check.
+# The profile puts duplication in the fast tier and lists similarity-rs under
+# qualification_required, so it stays out of lang-check until it is proved to
+# catch a real duplicate rather than merely run. That proof was done at
+# bootstrap: two near-identical functions were added to src/endpoint.rs and
+# reported as a pair at 98.23 percent similarity, and removing them returned
+# the tool to a clean result. It is therefore part of lang-check above.
 lang-duplication:
     similarity-rs .

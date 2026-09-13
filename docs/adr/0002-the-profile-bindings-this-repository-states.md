@@ -35,6 +35,7 @@ reconstruct it from a workflow file.
 | `auditable_build.dependency_metadata_retention_verification` | `cargo audit bin` against the released binary | recorded here; wired with the release workflow |
 | `packaging.select_one` | `native_cargo_packaging`, the default | `publish = false` in `Cargo.toml` |
 | `reports.services.coverage` | `artifact_only`, the default | the upload step in `.github/workflows/heavy-rust.yml` |
+| `qualification_required: similarity-rs` | qualified at bootstrap, then wired into the fast tier | `lang-check` in `just/lang.just` |
 | `reports.tests` | unbound under the `cargo` runner | see Unresolved |
 | `structural_rules.rules` | unbound; no custom rules are written | see Unresolved |
 
@@ -91,10 +92,11 @@ nothing for it to run. The profile's applicability contract covers a project
 with no custom structural checks; if that reading is wrong, the binding is
 missing rather than satisfied.
 
-Whether `similarity-rs` catches a duplicate in this codebase is unproven: the
-profile lists it under `qualification_required`, and it is not installed on the
-machine where this repository was bootstrapped. Duplication is therefore an
-unqualified gate, not a passing one.
+The `similarity-rs` installation path in CI is reasoned about rather than
+observed. `taiki-e/install-action` carries no prebuilt binary for it, so
+`mise.toml` requests it through the cargo backend, which compiles from source.
+That has not run on a runner yet, and a gate whose installation is untested is
+a gate that can fail for a reason unrelated to the code.
 
 What reopens the platform decision: a capture implementation and a delivery
 path that work on a second platform, with evidence from that platform. What

@@ -3,3 +3,6 @@
 [tools]
 just = "latest"
 uv = "latest"
+# The fast-tier duplication gate. Built from source through mise's cargo
+# backend because taiki-e/install-action carries no prebuilt binary for it.
+"cargo:similarity-rs" = "latest"

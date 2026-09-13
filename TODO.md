@@ -5,9 +5,9 @@ Prune this list every release. Anything older than one release becomes an
 issue or is deleted. Larger work belongs in issues; direction belongs in
 [ROADMAP.md](ROADMAP.md).
 
-- [ ] Qualify `similarity-rs` against a real duplicate, then wire duplication
-      into `lang-check`. The profile lists it under `qualification_required`, so
-      until it is proved the duplication gate is unqualified rather than passing.
+- [ ] Confirm that mise's cargo backend actually installs `similarity-rs` in CI.
+      It is qualified and wired into `lang-check`, but the CI installation path
+      has only been reasoned about, not observed on a runner.
 - [ ] Bind test reporting. The `cargo` runner emits no JUnit XML, so either
       select a verified adapter or switch `runner` to nextest for its native
       output. Recorded as unresolved in ADR 0002.
