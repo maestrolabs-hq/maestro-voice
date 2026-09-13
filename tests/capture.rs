@@ -355,6 +355,35 @@ fn a_policy_that_allows_nothing_gives_up_immediately() {
 }
 
 #[test]
+fn a_wav_on_disk_opens_and_yields_the_samples_playback_takes() {
+    // Playing a file is these two halves composed: read it, hand the samples
+    // to the sink. Both halves are exercised here; only the sink is not.
+    let samples = ramp(2048);
+    let path = std::env::temp_dir().join("maestro-voice-capture-open.wav");
+    std::fs::write(&path, usable(&samples)).expect("the temp directory is writable");
+
+    let source = WavSource::open(&path).expect("a usable file opens from disk");
+
+    assert_eq!(
+        source.samples(),
+        samples,
+        "what came off disk must be what playback would be handed"
+    );
+    std::fs::remove_file(&path).expect("clean up");
+}
+
+#[test]
+fn a_file_that_is_not_there_is_refused_rather_than_fatal() {
+    let missing = std::env::temp_dir().join("maestro-voice-capture-absent.wav");
+    let _ = std::fs::remove_file(&missing);
+
+    assert!(
+        WavSource::open(&missing).is_err(),
+        "a missing file must be an error, not a panic"
+    );
+}
+
+#[test]
 fn no_device_name_for_this_machine_is_written_into_the_code() {
     // The survey found exactly one capture source on this host, called
     // RDPSource, and it is the default. Naming it here would encode one
