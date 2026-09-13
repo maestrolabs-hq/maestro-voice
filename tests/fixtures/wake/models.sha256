@@ -1,0 +1,29 @@
+# The wake-word weights this repository does NOT ship, and their checksums.
+#
+# WHY THEY ARE NOT HERE. openwakeword 0.4.0 states, in its own package
+# metadata, that its Apache-2.0 licence covers its code only and that "all of
+# the included pre-trained models are licensed under the Creative Commons
+# Attribution-NonCommercial-ShareAlike 4.0 International license". This tree
+# declares itself MIT for every path in REUSE.toml. Committing these files
+# would make that declaration false. They are fetched and verified instead.
+# See docs/adr/0003-the-wake-word-runtime-and-its-weights.md.
+#
+# SOURCE. openwakeword-0.4.0-py3-none-any.whl, member path
+# openwakeword/resources/models/, from PyPI. The wheel itself is
+# 2c353f49a35d384507403efde3db439353d8281a52d08a0e42a5b493e5145075.
+#
+# WHERE THEY LAND. models/wake/, which is not tracked. `just fetch-wake-models`
+# puts them there and verifies this file against them.
+#
+# SILERO IS NOT LISTED HERE, AND THE REASON MATTERS. The same wheel also ships
+# silero_vad.onnx, and taking it from there would inherit the NonCommercial
+# terms above. The silero-vad package publishes that model under MIT
+# ("Copyright (c) 2020-present Silero Team"). The two are NOT interchangeable
+# bytes: openwakeword 0.4.0 carries 1807522 bytes, silero-vad 6.2.1 carries
+# 2327524 bytes for silero_vad.onnx and also ships 16k, half and op18
+# variants. Whichever the voice-activity stage uses, it comes from silero-vad.
+# The wake stage uses none of them.
+
+ba2b0e0f8b7b875369a2c89cb13360ff53bac436f2895cced9f479fa65eb176f  melspectrogram.onnx
+ba754db3cd768a524c655ea90655ee5e6055a43b8dfd29366a11e93716ae9e51  embedding_model.onnx
+94a13cfe60075b132f6a472e7e462e8123ee70861bc3fb58434a73712ee0d2cb  hey_jarvis_v0.1.onnx

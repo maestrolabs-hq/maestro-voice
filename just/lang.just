@@ -28,6 +28,38 @@ lang-check:
 lang-fmt:
     cargo fmt --all
 
+# Fetch the wake-word weights, which this repository deliberately does not ship.
+#
+# openwakeword's pretrained models are CC BY-NC-SA 4.0 by its own metadata,
+# while this tree declares itself MIT, so the weights are fetched rather than
+# committed and the checksum manifest is what pins which bytes a run used.
+# Running this means accepting openwakeword's model terms.
+# See docs/adr/0003-the-wake-word-runtime-and-its-weights.md.
+#
+# Deliberately does NOT fetch silero_vad.onnx. The same wheel ships one, and
+# taking it from there would inherit the NonCommercial terms; the voice-
+# activity stage takes its model from the MIT-licensed silero-vad package
+# instead. The two are different files, not the same bytes.
+fetch-wake-models:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    manifest="$PWD/tests/fixtures/wake/models.sha256"
+    destination="$PWD/models/wake"
+    work="$(mktemp -d)"
+    trap 'rm -rf "$work"' EXIT
+
+    echo "fetching openwakeword 0.4.0 into $destination"
+    pip download --no-deps --only-binary=:all: openwakeword==0.4.0 -d "$work" >/dev/null
+    unzip -q -o "$work"/openwakeword-0.4.0-*.whl -d "$work/wheel"
+
+    mkdir -p "$destination"
+    while read -r _ name; do
+        cp "$work/wheel/openwakeword/resources/models/$name" "$destination/$name"
+    done < <(grep -v '^[[:space:]]*#' "$manifest" | grep -v '^[[:space:]]*$')
+
+    cd "$destination" && sha256sum --check --strict "$manifest"
+    echo "wake-word weights verified"
+
 # The selected runner; with cargo, --all-targets leaves doctests to the heavy lang-docs recipe.
 lang-test:
     {{ test_command }}
