@@ -22,7 +22,9 @@
 pub mod capture;
 pub mod endpoint;
 pub mod intake;
+pub mod service;
 pub mod speak;
 pub mod tone;
 pub mod turn;
+pub mod voice;
 pub mod wake;
