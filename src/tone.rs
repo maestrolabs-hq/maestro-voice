@@ -8,6 +8,9 @@
 //!
 //! The vocabulary is small and countable: one tone acknowledges, two mean
 //! refused, three mean blocked, and a long one means capture has given up.
+//! Two of the single tones are quiet and mean different kinds of nothing --
+//! a wake that led nowhere, and an answer that could not be read aloud -- so
+//! they differ in pitch and length rather than only in name.
 
 use std::time::Duration;
 
@@ -38,6 +41,7 @@ const fn rest(millis: u64) -> Step {
 
 static LISTENING: [Step; 1] = [tone(880.0, 90)];
 static DISMISSED: [Step; 1] = [tone(440.0, 70)];
+static MUTED: [Step; 1] = [tone(294.0, 220)];
 static REFUSED: [Step; 3] = [tone(330.0, 90), rest(70), tone(330.0, 90)];
 static BLOCKED: [Step; 5] = [
     tone(660.0, 70),
@@ -55,6 +59,12 @@ pub enum Cue {
     Listening,
     /// A wake nothing followed, abandoned quietly.
     Dismissed,
+    /// There was an answer and it could not be spoken.
+    ///
+    /// Quiet on purpose, and distinct from [`Self::Refused`]: the reply is on
+    /// screen and only the audio is missing, which is a smaller thing than not
+    /// being served at all.
+    Mute,
     /// The router would not serve a model, or it never became ready.
     Refused,
     /// The agent is sitting on a question, so the transcript was not sent.
@@ -69,6 +79,7 @@ impl Cue {
         match self {
             Self::Listening => &LISTENING,
             Self::Dismissed => &DISMISSED,
+            Self::Mute => &MUTED,
             Self::Refused => &REFUSED,
             Self::Blocked => &BLOCKED,
             Self::Stopped => &STOPPED,
@@ -78,7 +89,7 @@ impl Cue {
     /// How loud this cue is, relative to full scale.
     const fn gain(self) -> f32 {
         match self {
-            Self::Dismissed => SOFT_GAIN,
+            Self::Dismissed | Self::Mute => SOFT_GAIN,
             _ => GAIN,
         }
     }
@@ -116,9 +127,10 @@ mod tests {
     use crate::capture::samples_in;
     use std::time::Duration;
 
-    const EVERY: [Cue; 5] = [
+    const EVERY: [Cue; 6] = [
         Cue::Listening,
         Cue::Dismissed,
+        Cue::Mute,
         Cue::Refused,
         Cue::Blocked,
         Cue::Stopped,
@@ -192,14 +204,37 @@ mod tests {
     fn the_failure_cues_carry_their_meaning_in_their_shape() {
         assert_eq!(bursts(&Cue::Listening.samples()), 1);
         assert_eq!(bursts(&Cue::Dismissed.samples()), 1);
+        assert_eq!(
+            bursts(&Cue::Mute.samples()),
+            1,
+            "a reply that cannot be spoken is one tone, not a refusal's two"
+        );
         assert_eq!(bursts(&Cue::Refused.samples()), 2, "refusal is two tones");
         assert_eq!(bursts(&Cue::Blocked.samples()), 3, "blocked is three tones");
         assert_eq!(bursts(&Cue::Stopped.samples()), 1);
     }
 
+    /// The two quiet single tones mean different things -- "nothing was said"
+    /// against "something was said and I cannot say it back" -- so they must
+    /// not be told apart only by a reader of this file.
+    #[test]
+    fn the_two_quiet_single_tones_are_distinguishable() {
+        assert_ne!(
+            Cue::Mute.length(),
+            Cue::Dismissed.length(),
+            "a muted reply and an abandoned wake must not sound alike"
+        );
+    }
+
     #[test]
     fn the_stop_cue_is_the_long_one() {
-        for cue in [Cue::Listening, Cue::Dismissed, Cue::Refused, Cue::Blocked] {
+        for cue in [
+            Cue::Listening,
+            Cue::Dismissed,
+            Cue::Mute,
+            Cue::Refused,
+            Cue::Blocked,
+        ] {
             assert!(
                 Cue::Stopped.length() > cue.length(),
                 "the stop cue must outlast {cue:?}"
