@@ -40,5 +40,15 @@ too_many_lines = "warn"
 cognitive_complexity = "warn"
 too_many_arguments = "warn"
 
+# Test-only, and neither is reachable from the shipped binary.
 [dev-dependencies]
+# Reads the WAV corpus. The standard library would nearly do, and that "nearly"
+# is the point: the fixtures carry a `LIST` chunk between `fmt ` and `data`,
+# because that is what the generator writes. A reader that assumes `data`
+# follows `fmt ` reads 26 bytes of metadata as audio and still produces plausible
+# scores, which is precisely the class of silent fault this lane exists to catch.
+hound = "3.5.1"
+# Verifies the fetched weights against the committed manifest. Preferred over a
+# hand-rolled digest, which was tried: 130 lines of cryptography in a test file,
+# fighting the pedantic lints, to avoid one well-known crate.
 sha2 = "0.11.0"

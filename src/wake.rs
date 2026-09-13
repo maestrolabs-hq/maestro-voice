@@ -40,10 +40,34 @@ pub struct Detector {
 }
 
 impl Detector {
+    /// The threshold to start from, and the measurement that chose it.
+    ///
+    /// Against the committed corpus, scored by openWakeWord itself:
+    ///
+    /// | fixture | peak |
+    /// | --- | --- |
+    /// | `wake_hey_jarvis_en` | 0.998402 |
+    /// | `near_miss_en`, "Hey Travis" | 0.348132 |
+    /// | `room_tone` | 0.001254 |
+    /// | `negative_speech_fr` | 0.000018 |
+    /// | `negative_speech_en` | 0.000006 |
+    ///
+    /// The near miss is what fixes the number. "Hey Travis" peaks at 0.348132,
+    /// so 0.5 sits 1.44x above the loudest thing that must not wake the daemon
+    /// and 2.0x below the quietest thing that must -- while 0.3 would wake it
+    /// whenever somebody said Travis. That is the evidence for this default
+    /// rather than convention.
+    ///
+    /// It is a starting point, not a finding about a room: every fixture is
+    /// synthetic speech, and the phrase has not been measured in the owner's
+    /// own voice. See `tests/wake_equivalence.rs`.
+    pub const DEFAULT_THRESHOLD: f32 = 0.5;
+
     /// A detector that fires above `threshold`.
     ///
     /// The threshold is a tuning decision about a particular room, voice and
     /// microphone, so it is supplied rather than chosen here.
+    /// [`Self::DEFAULT_THRESHOLD`] is where to start.
     #[must_use]
     pub const fn new(threshold: f32) -> Self {
         Self {
