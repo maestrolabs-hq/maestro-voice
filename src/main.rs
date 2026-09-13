@@ -24,6 +24,14 @@ use maestro_voice::wake::ModelSet;
 mod serve;
 
 fn main() -> ExitCode {
+    // The argument selects a subcommand and nothing else: it is matched below
+    // against a closed set, and anything outside it is refused. It grants no
+    // privilege, names no path, and authenticates nobody, so the property
+    // `rust.lang.security.args.args` exists to protect -- that argv is
+    // attacker-controlled and must not be trusted for security -- is not one
+    // this line relies on. The rule reads argv[0], the executable path; this
+    // reads argv[1].
+    // nosemgrep: rust.lang.security.args.args
     let command = env::args().nth(1).unwrap_or_else(|| "check".to_owned());
     let loaded = settings();
 
