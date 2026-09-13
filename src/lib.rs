@@ -20,3 +20,4 @@
 //! `docs/adr/0001-the-capture-source-is-a-seam.md`.
 
 pub mod endpoint;
+pub mod speak;
