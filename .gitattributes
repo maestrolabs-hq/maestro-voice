@@ -1,0 +1,69 @@
+# Normalize text, preserve binary assets, and collapse generated change views.
+* text=auto eol=lf
+
+# Source and configuration
+*.rs text
+*.py text
+*.java text
+*.kt text
+*.go text
+*.js text
+*.ts text
+*.jsx text
+*.tsx text
+*.css text
+*.html text
+*.tf text
+*.hcl text
+*.yml text
+*.yaml text
+*.json text
+*.toml text
+*.xml text
+*.md text
+*.txt text
+*.ini text
+*.cfg text
+*.properties text
+*.just text
+justfile text
+Makefile text
+Dockerfile text
+*.sh text eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary images, fonts, archives, and documents
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.bmp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.zip binary
+*.tar binary
+*.gz binary
+*.bz2 binary
+*.xz binary
+*.7z binary
+*.jar binary
+*.wasm binary
+*.pdf binary
+
+# Lockfiles stay diffable, but collapse by default in pull requests.
+Cargo.lock linguist-generated=true
+uv.lock linguist-generated=true
+poetry.lock linguist-generated=true
+package-lock.json linguist-generated=true
+pnpm-lock.yaml linguist-generated=true
+yarn.lock linguist-generated=true
+go.sum linguist-generated=true
+.terraform.lock.hcl linguist-generated=true
+gradle.lockfile linguist-generated=true
+CHANGELOG.md linguist-generated=true

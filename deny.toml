@@ -1,0 +1,16 @@
+# cargo-deny policy: yanked advisories, a permissive license allowlist, bans and sources.
+# The starting allowlist is a project binding; widen it only when a dependency requires it, and say why.
+[advisories]
+yanked = "deny"
+
+[licenses]
+allow = ["MIT", "MIT-0", "Apache-2.0", "Unicode-3.0", "Zlib"]
+confidence-threshold = 0.93
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

@@ -1,0 +1,27 @@
+# Open and update the release pull request from Conventional Commits; assets are built by the language release workflow.
+name: release-please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # With the default GITHUB_TOKEN the release PR does not trigger the fast workflow;
+      # if checks must run on it, bind a GitHub App or fine-grained token as token:
+      # (a project binding, not shipped here).
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: .github/release-please/config.json
+          manifest-file: .github/release-please/manifest.json

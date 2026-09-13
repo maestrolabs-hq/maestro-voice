@@ -1,0 +1,26 @@
+# Report documentation that is wrong, missing or promises something the code does not do.
+name: Documentation
+description: A document is wrong, missing or promises something the code does not do.
+labels: [documentation]
+body:
+  - type: input
+    id: location
+    attributes:
+      label: Which document
+      description: Give the path or URL and the section.
+    validations:
+      required: true
+  - type: textarea
+    id: wrong
+    attributes:
+      label: What it says, and what is true
+      description: Quote the passage. A wrong document is a bug too; if the code is right, the document changes.
+    validations:
+      required: true
+  - type: textarea
+    id: fix
+    attributes:
+      label: Suggested wording
+      description: Optional. A sentence you would accept is faster than a description of one.
+    validations:
+      required: false

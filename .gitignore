@@ -1,0 +1,93 @@
+# Ignore local artifacts across all supported languages; retain lockfiles.
+
+# OS: macOS, Windows, Linux
+.DS_Store
+._*
+.Spotlight-V100/
+.Trashes/
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*~
+.directory
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+auth.json
+
+# Reports and caches (including SARIF and JUnit outputs in reports/)
+reports/
+.cache/
+*.log
+
+# Shared outputs: Rust and Java
+target/
+# Shared outputs: Python and Node
+dist/
+# Shared outputs: Python and Java
+build/
+# Shared coverage: Python, Node and Go
+coverage/
+
+# Rust
+**/*.rs.bk
+*.pdb
+mutants.out/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.hypothesis/
+.coverage
+coverage.xml
+htmlcov/
+*.egg-info/
+.mutmut-cache
+mutants/
+
+# Node: TypeScript and JavaScript
+node_modules/
+.npm/
+*.tsbuildinfo
+.stryker-tmp/
+reports/mutation/
+
+# Java
+.gradle/
+out/
+*.class
+.settings/
+.classpath
+.project
+
+# Go: keep vendor/ and go.sum
+*.test
+cover.out
+coverage.out
+
+# Terraform: keep .terraform.lock.hcl
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfvars
+*.tfvars.json
+!*.example.tfvars
+
+# Ansible
+*.retry
+
+# Kubernetes and Docker need no additional ignores.

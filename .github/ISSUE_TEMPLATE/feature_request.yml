@@ -1,0 +1,58 @@
+# Propose a change, starting with the problem and a checkable outcome.
+name: Feature request
+description: Propose a change, starting with the problem and a checkable outcome.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem, before solution
+      description: Who is blocked, doing what, and what evidence shows the need?
+    validations:
+      required: true
+  - type: textarea
+    id: change
+    attributes:
+      label: Proposed change
+      description: Describe the smallest change that solves that problem.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered and why not
+      description: Include doing nothing and using what already exists.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and non-goals
+      description: What is included, and what is deliberately left out?
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: Give criteria someone else can check without asking what you meant.
+    validations:
+      required: true
+  - type: dropdown
+    id: decision
+    attributes:
+      label: Does this change a recorded decision?
+      description: Recorded decisions live in docs/adr. Reopen one with new evidence, not a preference already considered.
+      options:
+        - 'no'
+        - yes, an ADR named below
+        - unsure
+    validations:
+      required: true
+  - type: textarea
+    id: adr
+    attributes:
+      label: Which ADR, and what changed since it was recorded
+      description: Give the ADR number and the new evidence, changed constraint or observed consequence. Leave empty if none.
+    validations:
+      required: false

@@ -1,0 +1,2 @@
+# Profile argument limit (limits.arguments_per_function = 5); clippy's default is 7.
+too-many-arguments-threshold = 5

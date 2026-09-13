@@ -1,0 +1,10 @@
+# REUSE requires LICENSES/MIT.txt; per-file headers are optional under this aggregate annotation.
+version = 1
+SPDX-PackageName = "maestro-voice"
+SPDX-PackageSupplier = "maestrolabs-hq"
+
+[[annotations]]
+path = "**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 maestrolabs-hq"
+SPDX-License-Identifier = "MIT"

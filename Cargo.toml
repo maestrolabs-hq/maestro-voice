@@ -1,0 +1,29 @@
+# Package identity, dependencies and lint policy.
+# lang-check denies clippy warnings (-D warnings), so "warn" below means error in CI.
+#
+# The dependency table is empty on purpose. `cargo machete` is a fast-tier gate
+# and fails on a declared dependency nothing imports, so a crate arrives with
+# the first code that uses it rather than ahead of it. The ONNX runtime binding
+# lands with the wake-word detector, which is the first thing that runs a model.
+[package]
+name = "maestro-voice"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+publish = false
+
+[[bin]]
+name = "maestro-voice"
+path = "src/main.rs"
+
+[dependencies]
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+too_many_lines = "warn"
+cognitive_complexity = "warn"
+too_many_arguments = "warn"

@@ -1,0 +1,19 @@
+# Markdown rules shared by every repository; mirrors the estate policy, each rule on or off for a stated reason.
+# MD040, MD034, MD012 and MD010 stay at defaults.
+[global]
+# MD013: long lines in badge rows and table columns cannot wrap.
+# MD036: emphasis-as-heading is a deliberate subtitle.
+disable = ["MD013", "MD036"]
+
+[MD033]
+allowed-elements = ["div", "img", "a", "p", "br", "h1", "h2", "sub", "nav", "ol", "li", "strong", "span"]
+
+[MD024]
+siblings-only = true
+
+[MD029]
+style = "ordered"
+
+[per-file-ignores]
+# A PR template starts at a second-level heading because the PR title is the first-level one.
+".github/pull_request_template.md" = ["MD041"]

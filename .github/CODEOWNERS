@@ -1,0 +1,15 @@
+# Route repository changes and sensitive configuration to the maintainer.
+* @FrancoisLDaigneault
+
+# Gate configuration
+/.github/workflows/ @FrancoisLDaigneault
+/.pre-commit-config.yaml @FrancoisLDaigneault
+/.rumdl.toml @FrancoisLDaigneault
+/justfile @FrancoisLDaigneault
+/just/ @FrancoisLDaigneault
+/REUSE.toml @FrancoisLDaigneault
+
+# Recorded decisions and copied instructions
+/docs/adr/ @FrancoisLDaigneault
+/.agents/ @FrancoisLDaigneault
+/AGENTS.md @FrancoisLDaigneault

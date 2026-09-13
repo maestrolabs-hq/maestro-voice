@@ -1,0 +1,76 @@
+# Report a mismatch between promised and actual behaviour, including a check that is wrong.
+name: Bug report
+description: Something behaves differently from what it says it does.
+labels: [bug]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - the code or its output
+        - a CI check or local hook
+        - a release or its assets
+    validations:
+      required: true
+  - type: dropdown
+    id: direction
+    attributes:
+      label: If a check is wrong, which way
+      description: A check that passes on incorrect code matters more than one that fails on correct code.
+      options:
+        - not about a check
+        - it failed on correct code
+        - it passed on incorrect code
+    validations:
+      required: true
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened
+      description: Paste the command and its output verbatim; remove secrets before submitting.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+      description: Which document or message promised this? Link it, or say this was your expectation.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Smallest reproduction
+      description: Give the shortest steps and input that reproduce it. If you cannot reduce it, say so and report it anyway.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Give the release version or full commit SHA.
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - WSL2
+        - CI
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues.
+          required: true
+        - label: I ran just check on a clean checkout.
+          required: true

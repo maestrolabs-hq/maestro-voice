@@ -1,0 +1,5 @@
+# Task runner and uv for the Rust gates; versions are unpinned here, pin with mise use --pin at bootstrap.
+# Rust itself comes from rustup reading rust-toolchain.toml, not from mise.
+[tools]
+just = "latest"
+uv = "latest"

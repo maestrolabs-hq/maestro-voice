@@ -1,0 +1,4 @@
+# JUnit XML for the nextest runner; the path is relative to the profile directory, so the report lands at target/nextest/default/junit.xml.
+# Inert under the cargo runner, which needs a verified adapter for JUnit (a project binding).
+[profile.default.junit]
+path = "junit.xml"

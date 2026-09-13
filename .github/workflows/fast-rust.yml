@@ -1,0 +1,52 @@
+# Fast Rust gates: `just lang-check` on every claimed platform plus Semgrep SAST.
+# Required contexts are one `fast-rust / check (os)` per matrix leg, such as `fast-rust / check (ubuntu-latest)`, plus `fast-rust / sast`.
+# Trimmed to the one platform this repository claims; see docs/adr/0002-the-profile-bindings-this-repository-states.md.
+# Capture goes through PulseAudio and delivery runs the herdr command, neither of which is implemented elsewhere yet.
+name: fast-rust
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Installs just and uv from mise.toml and puts the shims on PATH.
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      # rustup reads rust-toolchain.toml and installs the pinned toolchain with its components.
+      - run: rustup show
+      - uses: taiki-e/install-action@fa23953489c080190314742a9b907f8e97c6767c # v2.87.10
+        with:
+          tool: cargo-deny,cargo-machete,cargo-nextest
+      - run: just lang-check
+
+  sast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - run: uvx --from semgrep==1.177.0 semgrep scan --config p/rust --metrics=off --error .

@@ -1,0 +1,5 @@
+# Pinned rather than floating: clippy gains lints between releases, so a floating channel fails CI on untouched code.
+# Moving the pin is a reviewed edit like any other; llvm-tools serves cargo-llvm-cov in the heavy tier.
+[toolchain]
+channel = "1.98.0"
+components = ["clippy", "rustfmt", "llvm-tools"]

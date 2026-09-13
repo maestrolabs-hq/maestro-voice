@@ -1,0 +1,9 @@
+# Keep blank issues available and route private reports away from public issues.
+blank_issues_enabled: true
+contact_links:
+- name: Security vulnerability
+  url: https://github.com/maestrolabs-hq/maestro-voice/security/advisories/new
+  about: Report privately, never in a public issue.
+- name: Questions and discussion
+  url: https://github.com/maestrolabs-hq/maestro-voice/discussions
+  about: Ask how something works or whether it should work that way.
