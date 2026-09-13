@@ -93,11 +93,15 @@
 //! | machine | CPU | this crate's build | observed maximum divergence |
 //! | --- | --- | --- | --- |
 //! | development | AMD Ryzen 7 9800X3D | pyke prebuilt, static | 3.278e-07 |
-//! | GitHub hosted `ubuntu-latest` | see the canary note in a run log | pyke prebuilt, static | 1.013279e-06 |
+//! | GitHub hosted `ubuntu-latest` | Intel Xeon Platinum 8573C | pyke prebuilt, static | 1.013279e-06 |
 //!
-//! Two machines already differ by 3.1x. That spread, not either number, is
-//! why the bound is set with symmetric margin rather than just above the
-//! largest floor seen so far.
+//! Two machines already differ by 3.1x, and they differ by CPU vendor: the
+//! kernels ONNX Runtime dispatches to on a Zen 5 desktop part and on a
+//! Sapphire Rapids server part are not the same code. That spread, not either
+//! number, is why the bound is set with symmetric margin rather than just
+//! above the largest floor seen so far. GitHub also rotates its hardware, so
+//! a later run may report a processor not named here; the workflow prints it
+//! for that reason.
 //!
 //! # If the floor moves
 //!
