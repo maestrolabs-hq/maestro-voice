@@ -14,12 +14,12 @@ here="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 python="${MAESTRO_TTS_PYTHON:-${HOME}/chatterbox-local/.venv/bin/python}"
 
 if [ ! -x "${python}" ]; then
-	echo "llama-server-tts: no interpreter at '${python}'." >&2
-	echo "Set MAESTRO_TTS_PYTHON to one with chatterbox installed." >&2
-	# 78 is EX_CONFIG: the machine is not set up, rather than the model
-	# failing to load. The router reports the exit status, so the two are
-	# worth telling apart in a log.
-	exit 78
+  echo "llama-server-tts: no interpreter at '${python}'." >&2
+  echo "Set MAESTRO_TTS_PYTHON to one with chatterbox installed." >&2
+  # 78 is EX_CONFIG: the machine is not set up, rather than the model
+  # failing to load. The router reports the exit status, so the two are
+  # worth telling apart in a log.
+  exit 78
 fi
 
 export PYTHONPATH="${here}${PYTHONPATH:+:${PYTHONPATH}}"

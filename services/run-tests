@@ -15,4 +15,4 @@ python="${MAESTRO_SPEECH_TEST_PYTHON:-python3}"
 
 cd "${here}"
 PYTHONPATH="${here}" exec "${python}" -W error::ResourceWarning \
-	-m unittest discover -s tests -p 'test_*.py' "$@"
+  -m unittest discover -s tests -p 'test_*.py' "$@"
