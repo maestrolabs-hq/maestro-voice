@@ -20,7 +20,7 @@ use maestro_voice::tone::Cue;
 use maestro_voice::turn::Delivery;
 use std::sync::Arc;
 use std::time::Duration;
-use support::{Ears, Fakes, WAKE, Wakes, silence, speech};
+use support::{Ears, Fakes, Latch, WAKE, Wakes, silence, speech};
 
 /// Room tone, the wake phrase, a sentence, then quiet.
 ///
@@ -212,16 +212,31 @@ fn the_wake_word_stops_a_reply_that_is_playing() {
     let fakes = Fakes::new();
     fakes.transcriber.answer("run the tests", Some("en"));
     fakes.reply("<speak>A long answer that is still being read out.</speak>");
-    // Hold the speaker open so the second wake lands during playback.
-    fakes.player.hold();
+    // Hold the reply playing until the second wake actually fires, rather than
+    // for a guessed duration: the audio loop reads a file at memory speed, so
+    // a fixed hold is a race that depends on how busy the machine is.
+    let second_wake = Arc::new(Latch::default());
+    let playing = Arc::new(Latch::default());
+    fakes.player.announce_start(&playing);
+    fakes.player.hold_until(&second_wake);
 
+    // Room tone is fed after the first turn until the reply is genuinely
+    // playing, then the wake lands on it.
     let mut audio = utterance();
-    audio.extend(silence(6));
-    let woke_again = audio.len() / maestro_voice::capture::CHUNK_SAMPLES;
-    audio.extend(speech(10));
+    let after_the_turn = audio.len() / maestro_voice::capture::CHUNK_SAMPLES;
     audio.extend(silence(20));
 
-    fakes.run(&audio, Wakes::at_each(&[WAKE, woke_again]));
+    fakes.run_paced(
+        &audio,
+        Wakes::at(WAKE).and_once(&playing).announcing(&second_wake),
+        after_the_turn,
+        &playing,
+    );
+
+    assert!(
+        fakes.player.played_audio(),
+        "the reply must have started playing, or there was nothing to interrupt"
+    );
 
     assert!(
         fakes.player.hushed() >= 1,
@@ -235,15 +250,35 @@ fn the_wake_word_abandons_a_transcription_and_only_the_newest_is_delivered() {
     fakes
         .transcriber
         .answers(&["the first thing", "the second thing"], Some("en"));
-    // Hold the first transcription open so the second wake lands during it.
-    fakes.transcriber.hold();
+    // Keep the first transcription in flight until the second wake fires, so
+    // the cancellation being tested is guaranteed to happen rather than likely.
+    // The first transcription is held until the SECOND one has started, which
+    // is the ordering that isolates what is being tested. Releasing it at the
+    // second wake instead proves nothing: the machine would be recording rather
+    // than working, and its own phase guard would drop the stale result whether
+    // or not the generation was checked. Held this long, both turns are in the
+    // working phase and only the generation can tell them apart.
+    let second_started = Arc::new(Latch::default());
+    let transcribing = Arc::new(Latch::default());
+    fakes.transcriber.announce_start_of(0, &transcribing);
+    fakes.transcriber.announce_start_of(1, &second_started);
+    fakes.transcriber.hold_until(&second_started);
 
+    // Room tone is fed after the first utterance until its transcription is
+    // genuinely in flight, then the second wake lands and cancels it. The wake
+    // is data-driven rather than counted, because the room tone advances the
+    // chunk count and a counted index would no longer mean what it said.
     let mut audio = utterance();
-    let woke_again = audio.len() / maestro_voice::capture::CHUNK_SAMPLES;
+    let after_the_utterance = audio.len() / maestro_voice::capture::CHUNK_SAMPLES;
     audio.extend(speech(10));
     audio.extend(silence(20));
 
-    fakes.run(&audio, Wakes::at_each(&[WAKE, woke_again]));
+    fakes.run_paced(
+        &audio,
+        Wakes::at(WAKE).and_once(&transcribing),
+        after_the_utterance,
+        &transcribing,
+    );
 
     // Counting deliveries is not enough: the machine's phase guard holds the
     // count at one even when the wrong transcript is the one that gets through.

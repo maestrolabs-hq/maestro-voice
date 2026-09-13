@@ -38,7 +38,10 @@ impl Daemon {
     /// Ask for the transcription model now, and do not wait for it.
     fn warm(&mut self) {
         let transcriber = Arc::clone(&self.services.transcriber);
-        drop(std::thread::spawn(move || transcriber.warm()));
+        self.start(move |_| {
+            transcriber.warm();
+            Note::Warmed
+        });
     }
 
     /// Begin an utterance from the pre-roll already captured.

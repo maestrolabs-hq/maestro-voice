@@ -12,6 +12,14 @@
 //! service sends and converts it. Merging them would mean the gate had to stop
 //! refusing, which is the whole value of it.
 
+/// Sample rates worth believing from a header.
+///
+/// Wide enough for anything a speech model produces and narrow enough that a
+/// damaged header is refused rather than acted on. A declared rate of 1 turns a
+/// one-second reply into a four-hour one, so refusing it here is cheaper than
+/// discovering it as an allocation.
+const PLAUSIBLE_RATES: std::ops::RangeInclusive<u32> = 4_000..=192_000;
+
 /// Mono, sixteen-bit samples at `rate`, read from a WAV file.
 ///
 /// # Errors
@@ -32,7 +40,10 @@ pub fn decode(wav: &[u8]) -> Result<(Vec<i16>, u32), String> {
         let body = at + 8;
         let end = body.saturating_add(size).min(wav.len());
 
-        if id == b"fmt " && size >= 16 {
+        // The declared size is not evidence the bytes are there. A header that
+        // promises sixteen bytes and delivers four is what a truncated reply
+        // looks like, and indexing on the promise panics.
+        if id == b"fmt " && size >= 16 && body + 16 <= wav.len() {
             let channels = u16::from_le_bytes([wav[body + 2], wav[body + 3]]);
             let rate =
                 u32::from_le_bytes([wav[body + 4], wav[body + 5], wav[body + 6], wav[body + 7]]);
@@ -42,6 +53,12 @@ pub fn decode(wav: &[u8]) -> Result<(Vec<i16>, u32), String> {
             }
             if bits != 16 {
                 return Err(format!("{bits} bits per sample; sixteen is required"));
+            }
+            if !PLAUSIBLE_RATES.contains(&rate) {
+                return Err(format!(
+                    "{rate} samples per second is not a rate a speech model \
+                     produces; the header is damaged"
+                ));
             }
             format = Some(rate);
         } else if id == b"data" {
@@ -66,9 +83,13 @@ pub fn decode(wav: &[u8]) -> Result<(Vec<i16>, u32), String> {
 /// what it costs is high-frequency detail nobody listening to a spoken summary
 /// will miss. A better resampler is a change to make when something measures
 /// this as the problem.
+/// A rate outside [`PLAUSIBLE_RATES`] is left alone rather than converted: there
+/// is no sensible answer, and the arithmetic would otherwise turn a short reply
+/// into an unbounded allocation.
 #[must_use]
 pub fn resample(samples: &[i16], from: u32, to: u32) -> Vec<i16> {
-    if from == to || from == 0 || samples.is_empty() {
+    let usable = PLAUSIBLE_RATES.contains(&from) && PLAUSIBLE_RATES.contains(&to);
+    if from == to || !usable || samples.is_empty() {
         return samples.to_vec();
     }
 

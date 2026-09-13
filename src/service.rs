@@ -94,7 +94,7 @@ pub trait Player: Send + Sync {
 /// Deciding whether a chunk of audio holds speech.
 ///
 /// Its own trait because the daemon ships the simplest thing that works and
-/// expects to replace it: see `docs/adr/0004`.
+/// expects to replace it: see `docs/adr/0005`.
 pub trait Ear: Send {
     /// Whether this chunk holds speech.
     fn speech(&mut self, chunk: &[i16]) -> bool;

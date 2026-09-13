@@ -212,9 +212,10 @@ impl Daemon {
             Note::Delivered(_, outcome) => Event::Delivered(outcome),
             Note::Spoke(_, true) => Event::Spoke,
             Note::Spoke(_, false) => Event::NotSpoken,
-            // Nothing depends on a cue having finished; it was counted only so
-            // that a run driven from a file waits for its own tones.
-            Note::Announced => return false,
+            // Nothing depends on either of these having finished; both are
+            // counted only so a run driven from a file waits for them rather
+            // than racing them.
+            Note::Announced | Note::Warmed => return false,
             Note::Reply(message) => {
                 let Some(spoken) = self.decide_reply(&message) else {
                     return false;

@@ -27,6 +27,13 @@ pub enum Note {
     Delivered(u64, Delivery),
     /// Playback finished; `false` means it did not happen.
     Spoke(u64, bool),
+    /// The transcription model was asked for ahead of time.
+    ///
+    /// Carries nothing, for the same reason a cue does not: warming is best
+    /// effort and nothing depends on its result. It is a note at all so the
+    /// daemon knows the work is outstanding, which is what lets a run driven
+    /// from a file wait for it rather than race it.
+    Warmed,
     /// A cue finished playing.
     ///
     /// Carries nothing because nothing depends on it. It exists so that a cue
@@ -47,7 +54,7 @@ impl Note {
     pub const fn generation(&self) -> Option<u64> {
         match self {
             Self::Transcribed(at, _) | Self::Delivered(at, _) | Self::Spoke(at, _) => Some(*at),
-            Self::Reply(_) | Self::Announced => None,
+            Self::Reply(_) | Self::Announced | Self::Warmed => None,
         }
     }
 

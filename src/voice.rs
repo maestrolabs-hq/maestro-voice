@@ -5,7 +5,7 @@
 //! this project would otherwise use, Silero, is a separate model under its own
 //! licence, and fetching it is a decision with consequences of its own;
 //! shipping a loudness gate first keeps the turn loop working and honest about
-//! what it is. `docs/adr/0004` records that decision and what replaces it.
+//! what it is. `docs/adr/0005` records that decision and what replaces it.
 //!
 //! What it does do is adapt, because a fixed loudness threshold is a fact about
 //! one room with one microphone at one gain. The floor is the quietest thing

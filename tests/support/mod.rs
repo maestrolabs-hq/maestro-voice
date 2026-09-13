@@ -17,12 +17,60 @@ use maestro_voice::tone::Cue;
 use maestro_voice::turn::{Delivery, Fault, Machine};
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
 /// Long enough for the audio loop to get through a file's remaining chunks,
 /// short enough that a suite of these still runs in a moment.
 const MOMENT: Duration = Duration::from_millis(300);
+
+/// How long a held fake waits before giving up and letting the test fail.
+///
+/// A safety net, never reached in a passing run: without it a latch that is
+/// never opened would hang the suite instead of failing it.
+const PATIENCE: Duration = Duration::from_secs(10);
+
+/// A one-way gate: closed until something opens it, then open for good.
+///
+/// This is what makes "the wake word arrived while work was in flight"
+/// deterministic. Holding a fake open for a fixed duration and hoping the audio
+/// loop is slower is a race, and it lost about half the time under parallel
+/// load: the loop reads a file at memory speed, so whether 300 milliseconds is
+/// long enough depends on how busy the machine is.
+#[derive(Default)]
+pub struct Latch {
+    open: Mutex<bool>,
+    signal: Condvar,
+}
+
+impl Latch {
+    /// Let through everything waiting, now and later.
+    pub fn open(&self) {
+        *self.open.lock().expect("lock") = true;
+        self.signal.notify_all();
+    }
+
+    /// Whether it has been opened, without waiting.
+    #[must_use]
+    pub fn is_open(&self) -> bool {
+        *self.open.lock().expect("lock")
+    }
+
+    /// Wait until opened, or until patience runs out.
+    pub fn wait(&self) {
+        let mut open = self.open.lock().expect("lock");
+        while !*open {
+            let (guard, timed_out) = self
+                .signal
+                .wait_timeout(open, PATIENCE)
+                .expect("wait on the latch");
+            open = guard;
+            if timed_out.timed_out() {
+                return;
+            }
+        }
+    }
+}
 
 /// The endpointing rule every test here uses.
 pub fn machine() -> Machine {
@@ -92,6 +140,13 @@ pub type Ears = maestro_voice::voice::Gate;
 pub struct Wakes {
     at: Vec<usize>,
     seen: usize,
+    /// Opened when the last configured wake fires, which is how a held fake
+    /// learns that the moment it was waiting for has arrived.
+    announces: Option<Arc<Latch>>,
+    /// When set, the wake fires on the first chunk after this latch opens
+    /// rather than at a counted index.
+    once: Option<Arc<Latch>>,
+    fired_once: bool,
 }
 
 impl Wakes {
@@ -105,7 +160,30 @@ impl Wakes {
         Self {
             at: chunks.to_vec(),
             seen: 0,
+            announces: None,
+            once: None,
+            fired_once: false,
         }
+    }
+
+    /// Also fire once, on the first chunk after `latch` opens.
+    ///
+    /// Data-driven rather than counted, for the case where the moment depends
+    /// on a worker thread finishing. Pausing the audio instead would deadlock:
+    /// the daemon takes notes off its channel before reading a chunk, so a
+    /// source blocked in `next_chunk` can never reach a state that requires a
+    /// note to be absorbed first.
+    #[must_use]
+    pub fn and_once(mut self, latch: &Arc<Latch>) -> Self {
+        self.once = Some(Arc::clone(latch));
+        self
+    }
+
+    /// Open `latch` when the last configured wake fires.
+    #[must_use]
+    pub fn announcing(mut self, latch: &Arc<Latch>) -> Self {
+        self.announces = Some(Arc::clone(latch));
+        self
     }
 
     /// Never fires.
@@ -116,9 +194,70 @@ impl Wakes {
 
 impl Waker for Wakes {
     fn woke(&mut self, _chunk: &[i16]) -> bool {
-        let fires = self.at.contains(&self.seen);
+        let counted = self.at.contains(&self.seen);
+
+        let opened = !self.fired_once && self.once.as_ref().is_some_and(|latch| latch.is_open());
+        if opened {
+            self.fired_once = true;
+        }
+
+        let fires = counted || opened;
+        let last_counted = self.at.iter().max().copied() == Some(self.seen);
+        // The announcement belongs to whichever wake is the final one.
+        if fires && (opened || (last_counted && self.once.is_none())) {
+            if let Some(latch) = &self.announces {
+                latch.open();
+            }
+        }
         self.seen += 1;
         fires
+    }
+}
+
+/// The most room tone a paced source will invent before giving up.
+///
+/// A bug that never opens the latch must fail the test rather than hang it.
+const MOST_FILLER: usize = 20_000;
+
+/// A source that feeds room tone at one point until a latch opens.
+///
+/// This is what makes "the wake word arrived while X was happening"
+/// deterministic, and getting there took two wrong answers worth recording.
+///
+/// Holding a fake open for a fixed duration is a race: the daemon reads a file
+/// at memory speed, so whether three hundred milliseconds is long enough
+/// depends on how busy the machine is. It lost about half the time under
+/// parallel load.
+///
+/// *Blocking* the source is worse -- it deadlocks. The daemon takes notes off
+/// its channel and only then reads a chunk, so a source blocked in
+/// `next_chunk` can never reach a state that requires a note to be absorbed
+/// first, which is exactly what "a reply is playing" requires.
+///
+/// So it yields silence instead of waiting. The loop keeps turning, notes keep
+/// being absorbed, nothing wakes on room tone, and the real audio resumes the
+/// moment the latch opens.
+struct Paced {
+    samples: Vec<i16>,
+    at: usize,
+    pause_at: usize,
+    until: Arc<Latch>,
+    filled: usize,
+}
+
+impl Source for Paced {
+    fn next_chunk(&mut self) -> Result<Option<Vec<i16>>, CaptureError> {
+        if self.at == self.pause_at && !self.until.is_open() && self.filled < MOST_FILLER {
+            self.filled += 1;
+            return Ok(Some(vec![0; CHUNK_SAMPLES]));
+        }
+        let start = self.at * CHUNK_SAMPLES;
+        if start >= self.samples.len() {
+            return Ok(None);
+        }
+        let end = (start + CHUNK_SAMPLES).min(self.samples.len());
+        self.at += 1;
+        Ok(Some(self.samples[start..end].to_vec()))
     }
 }
 
@@ -141,7 +280,7 @@ struct Answer {
     texts: Vec<String>,
     language: Option<String>,
     refuse: bool,
-    slow: bool,
+    held: Option<Arc<Latch>>,
 }
 
 /// A transcriber that answers whatever it was told to.
@@ -150,6 +289,9 @@ pub struct FakeTranscriber {
     answer: Mutex<Answer>,
     received: Mutex<Vec<Vec<u8>>>,
     warmed: Mutex<usize>,
+    /// Latches to open when a given transcription begins, so the audio and the
+    /// other fakes can be held until the daemon has genuinely reached a state.
+    started: Mutex<Vec<(usize, Arc<Latch>)>>,
 }
 
 impl FakeTranscriber {
@@ -171,9 +313,17 @@ impl FakeTranscriber {
         self.answer.lock().expect("lock").refuse = true;
     }
 
-    /// Take a moment, so a wake word can land while this is in flight.
-    pub fn hold(&self) {
-        self.answer.lock().expect("lock").slow = true;
+    /// Stay in flight until `latch` opens, so a wake word lands during it.
+    pub fn hold_until(&self, latch: &Arc<Latch>) {
+        self.answer.lock().expect("lock").held = Some(Arc::clone(latch));
+    }
+
+    /// Open `latch` when transcription number `call` starts, counting from nought.
+    pub fn announce_start_of(&self, call: usize, latch: &Arc<Latch>) {
+        self.started
+            .lock()
+            .expect("lock")
+            .push((call, Arc::clone(latch)));
     }
 
     /// The audio handed over, one entry per transcription.
@@ -198,7 +348,7 @@ impl Transcriber for FakeTranscriber {
             received.push(audio.to_vec());
             received.len() - 1
         };
-        let (text, language, refuse, slow) = {
+        let (text, language, refuse, held) = {
             let answer = self.answer.lock().expect("lock");
             let text = answer
                 .texts
@@ -206,10 +356,22 @@ impl Transcriber for FakeTranscriber {
                 .or_else(|| answer.texts.last())
                 .cloned()
                 .unwrap_or_default();
-            (text, answer.language.clone(), answer.refuse, answer.slow)
+            (
+                text,
+                answer.language.clone(),
+                answer.refuse,
+                answer.held.clone(),
+            )
         };
-        if slow {
-            std::thread::sleep(MOMENT);
+        for (wanted, latch) in self.started.lock().expect("lock").iter() {
+            if *wanted == call {
+                latch.open();
+            }
+        }
+        // Only the first call waits: the utterance that must still be in flight
+        // when the next wake word arrives is the one being abandoned.
+        if let Some(latch) = held.filter(|_| call == 0) {
+            latch.wait();
         }
         if refuse {
             return Err(Fault::Refused);
@@ -310,13 +472,23 @@ pub struct FakePlayer {
     cues: Mutex<Vec<Cue>>,
     audio: Mutex<usize>,
     hushed: Mutex<usize>,
-    slow: Mutex<bool>,
+    held: Mutex<Option<Arc<Latch>>>,
+    /// Opened when a reply starts playing, as distinct from a cue.
+    started: Mutex<Option<Arc<Latch>>>,
 }
 
 impl FakePlayer {
-    /// Take a moment, so a wake word can land during playback.
-    pub fn hold(&self) {
-        *self.slow.lock().expect("lock") = true;
+    /// Keep a reply playing until `latch` opens, so a wake word interrupts it.
+    ///
+    /// Cues are never held: they are short, they fire constantly, and holding
+    /// them would stall the very loop the test is trying to observe.
+    pub fn hold_until(&self, latch: &Arc<Latch>) {
+        *self.held.lock().expect("lock") = Some(Arc::clone(latch));
+    }
+
+    /// Open `latch` when a reply starts playing.
+    pub fn announce_start(&self, latch: &Arc<Latch>) {
+        *self.started.lock().expect("lock") = Some(Arc::clone(latch));
     }
 
     /// Which cues reached the speaker, in order.
@@ -354,12 +526,18 @@ impl FakePlayer {
 
 impl Player for FakePlayer {
     fn play(&self, samples: &[i16]) -> bool {
-        match Self::recognise(samples) {
-            Some(cue) => self.cues.lock().expect("lock").push(cue),
-            None => *self.audio.lock().expect("lock") += 1,
-        }
-        if *self.slow.lock().expect("lock") {
-            std::thread::sleep(MOMENT);
+        let held = if let Some(cue) = Self::recognise(samples) {
+            self.cues.lock().expect("lock").push(cue);
+            None
+        } else {
+            *self.audio.lock().expect("lock") += 1;
+            if let Some(latch) = self.started.lock().expect("lock").as_ref() {
+                latch.open();
+            }
+            self.held.lock().expect("lock").clone()
+        };
+        if let Some(latch) = held {
+            latch.wait();
         }
         true
     }
@@ -416,6 +594,30 @@ impl Fakes {
     pub fn run(&self, samples: &[i16], mut wakes: Wakes) -> Stopped {
         let mut daemon = self.daemon();
         let mut source = WavSource::from_bytes(&wav(samples)).expect("a readable WAV");
+        let mut ears = Ears::default();
+        daemon.run(&mut source, &mut wakes, &mut ears)
+    }
+
+    /// Drive a turn that holds the audio at `pause_at` until `until` opens.
+    ///
+    /// For the two tests about something arriving mid-flight, where reading the
+    /// file straight through would outrun the worker threads and the situation
+    /// under test would never occur.
+    pub fn run_paced(
+        &self,
+        samples: &[i16],
+        mut wakes: Wakes,
+        pause_at: usize,
+        until: &Arc<Latch>,
+    ) -> Stopped {
+        let mut daemon = self.daemon();
+        let mut source = Paced {
+            samples: samples.to_vec(),
+            at: 0,
+            pause_at,
+            until: Arc::clone(until),
+            filled: 0,
+        };
         let mut ears = Ears::default();
         daemon.run(&mut source, &mut wakes, &mut ears)
     }
