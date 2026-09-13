@@ -18,10 +18,12 @@ use std::time::Duration;
 pub mod pulse;
 pub mod restart;
 pub mod ring;
+pub mod supervised;
 pub mod wav;
 
 pub use restart::{Attempt, Restart};
 pub use ring::Ring;
+pub use supervised::{Reopen, Sleep, Supervised, Wait};
 pub use wav::WavSource;
 
 /// Samples per second. Every source in this crate produces this rate, and one

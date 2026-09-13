@@ -13,8 +13,11 @@
 
 use maestro_voice::capture::pulse::{self, Direction, PulseSource};
 use maestro_voice::capture::{
-    Attempt, CHUNK_SAMPLES, Restart, Ring, SAMPLE_RATE, Source, WavSource, samples_in,
+    Attempt, CHUNK_SAMPLES, Error as CaptureError, Reopen, Restart, Ring, SAMPLE_RATE, Source,
+    Supervised, Wait, WavSource, samples_in,
 };
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::time::Duration;
 
 /// A RIFF/WAVE file carrying `samples`, written from the specification.
@@ -286,6 +289,96 @@ fn a_single_write_larger_than_the_ring_keeps_its_tail() {
 /// The policy this repository runs with: three tries, starting at 200ms.
 fn policy() -> Restart {
     Restart::allowing(3, Duration::from_millis(200))
+}
+
+/// A device that is simply gone.
+struct NeverOpens;
+
+impl Reopen for NeverOpens {
+    fn reopen(&mut self) -> Result<Box<dyn Source>, CaptureError> {
+        Err(CaptureError::Stopped("the device is gone".to_owned()))
+    }
+}
+
+/// A source that dies partway through, then cannot be reopened.
+struct DiesAfter(Option<Vec<i16>>);
+
+impl Reopen for DiesAfter {
+    fn reopen(&mut self) -> Result<Box<dyn Source>, CaptureError> {
+        match self.0.take() {
+            Some(samples) => Ok(Box::new(WavSource::from_bytes(&usable(&samples))?)),
+            None => Err(CaptureError::Stopped("and now it is gone".to_owned())),
+        }
+    }
+}
+
+/// Records what it was asked to wait for instead of waiting, so the backoff
+/// schedule is observable and the test takes microseconds.
+#[derive(Clone, Default)]
+struct Recorded(Rc<RefCell<Vec<Duration>>>);
+
+impl Wait for Recorded {
+    fn wait(&mut self, how_long: Duration) {
+        self.0.borrow_mut().push(how_long);
+    }
+}
+
+#[test]
+fn a_capture_that_never_reopens_gives_up_and_says_why_once() {
+    let waits = Recorded::default();
+    let mut capture = Supervised::new(NeverOpens, policy(), waits.clone());
+
+    let refusal = capture
+        .next_chunk()
+        .map(|_| ())
+        .expect_err("a device that never opens cannot produce audio");
+
+    let message = refusal.to_string();
+    assert!(
+        message.contains('3') && message.contains("gone"),
+        "the message must say how many tries and what the last failure was, got: {message}"
+    );
+    assert_eq!(
+        waits.0.borrow().as_slice(),
+        [Duration::from_millis(200), Duration::from_millis(400)],
+        "it must wait between tries, and longer each time, before giving up"
+    );
+}
+
+#[test]
+fn a_capture_that_dies_partway_is_reopened_rather_than_ending_the_stream() {
+    // A source running out is not the end of the audio: microphones do not
+    // end. It has to be treated as a failure and reopened.
+    let waits = Recorded::default();
+    let mut capture = Supervised::new(DiesAfter(Some(ramp(64))), policy(), waits.clone());
+
+    let first = capture.next_chunk().expect("the first open works");
+    assert_eq!(first.map(|c| c.len()), Some(64), "the audio it did have");
+
+    let refusal = capture
+        .next_chunk()
+        .map(|_| ())
+        .expect_err("the exhausted source cannot be reopened");
+
+    assert!(refusal.to_string().contains("gone"), "got: {refusal}");
+}
+
+#[test]
+fn audio_arriving_forgives_the_failures_before_it() {
+    // Two hiccups then success must not leave the daemon one hiccup away from
+    // stopping for the rest of the day.
+    let mut restart = policy();
+    let _ = restart.failed();
+    let waits = Recorded::default();
+    let mut capture = Supervised::new(DiesAfter(Some(ramp(64))), restart, waits.clone());
+
+    let _ = capture.next_chunk().expect("the first open works");
+
+    assert_eq!(
+        capture.failures(),
+        0,
+        "a chunk of real audio must clear the count"
+    );
 }
 
 #[test]
