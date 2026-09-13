@@ -72,6 +72,10 @@ fn the_environment_wins_over_the_file() {
 fn a_misspelled_setting_is_reported_rather_than_ignored() {
     // Ignoring it is how someone spends an evening wondering why their
     // threshold had no effect.
+    //
+    // `wake_threshhold` is misspelled deliberately and has to stay that way:
+    // corrected, it becomes a valid key and this test asserts a problem that
+    // can no longer occur. The spelling gate is told so in _typos.toml.
     let loaded = read("wake_threshhold = 0.7\n", &[]);
 
     assert_eq!(loaded.problems.len(), 1, "{:?}", loaded.problems);
